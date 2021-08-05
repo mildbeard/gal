@@ -1,0 +1,986 @@
+comment 'Atomic.gal';
+
+operation And and Repeating
+{
+    alias and & &&;
+    class.property string Mumps_Operator '&';
+    class.property integer Js_Precedence 6;
+    class.property string Js_Operator '&&';
+    class.property string Py_Operator 'and';
+    class.property integer Py_Precedence 6;
+    class.property string Php_Operator 'and';
+    class.property Php_Precedence 6;
+    method void Attributes
+    {
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            .= Argument Usage 'flag';
+        }
+    }
+}
+
+operation Add + Repeating
+{
+    alias add;
+    class.property string Mumps_Operator '+';
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property integer Php_Precedence 6;
+    class.property string Js_Operator '+';
+    class.property string Py_Operator '+';
+    class.property string Php_Operator '+';
+    method void Attributes
+    {
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            .= Argument Usage 'number';
+        }
+    }
+}
+
+operation Append append Append_Args
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property integer Php_Precedence 6;
+    class.property string Py_Operator ' + ';
+    class.property string Js_Operator ' + ';
+    class.property string Php_Operator ' + ';
+    method void Attributes
+    {
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            .= Argument Usage 'string';
+        }
+    }
+}
+operation Call . Invocation
+{
+    argument Target;
+    argument Method;
+    python [my Target Python] '.' [my Method Python] '(' (i Python_Args ', ') ')';
+    javascript [my Target Javascript] '.' [my Method Javascript] '(' (i Javascript_Args ', ') ')';
+    comment php [my Target Php] '.' [my Method Php] '(' (i Php_Args ', ') ')';
+}
+operation Classpropget classpropget
+{
+    argument Method;
+    optional Class;
+    method void Attributes
+    {
+        my= Method (shift [my Listargs]);
+        .= [my Method] Usage 'method';
+        if (gt (list.length [my Listargs]) 0)
+        {
+            my= Class (shift [my Listargs]);
+            .= [my Class] Usage 'class';
+        }
+    }
+}
+operation Contains contains Binary;
+
+operation Defined defined Unary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+
+    argument First;
+    
+    python [my First Python] ' == None';
+    javascript [my First Javascript] ' === undefined';
+}
+
+operation Dictionary_Default dict.default
+{
+    argument Dictionary;
+    argument Key;
+    argument Default;
+
+    fallback '(. :Gal Dict_Default ' [my Dictionary Fallback] ' ' [my Key Fallback] ' ' [my Default Fallback] ')';
+}
+
+operation Dictionary_Defined dict.defined
+{
+    argument Dictionary;
+    argument Key;
+    fallback '(. :Gal Dict_Defined ' [my Dictionary Fallback] ' ' [my Key Fallback] ' ' [my Default Fallback] ')';
+}
+
+operation Dictionary_Get dict.get
+{
+    argument Dictionary;
+    argument Key;
+    python [my Dictionary Python] '[' [my Key Python] ']';
+    javascript [my Dictionary Javascript] '[' [my Key Javascript] ']';
+}
+
+operation Divide / Binary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '/';
+    class.property string Py_Operator '/';
+}
+operation Equal = Binary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '==';
+    class.property string Py_Operator '==';
+}
+operation Evaluate evaluate
+{
+    argument String;
+    python 'eval(' [my String Python] ')';
+    javascript 'eval(' [my String Javascript] ')';
+}
+operation Greater greater Binary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '>';
+    class.property string Py_Operator '>';
+}
+operation Greater_Equal ge Binary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '>=';
+    class.property string Py_Operator '>=';
+}
+operation Http_Fetch http.fetch;
+operation Isa isa Binary
+{
+    class.property integer Js_Precedence 6;
+    argument Variable;
+    argument Class_Name;
+    javascript [my Variable Javascript] ' instanceof ' [my Class_Name Javascript];
+    python 'isinstance(' [my Variable Python] ', ' [my Class_Name Python] ')';
+}
+operation Less less Binary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '<';
+    class.property string Py_Operator '<';
+}
+operation Less_Equal le Binary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '<=';
+    class.property string Py_Operator '<=';
+}
+operation List_Get list.get;
+operation List_Last list.last Unary
+{
+    argument First;
+}
+operation List_Length list.length Unary
+{
+    argument First;
+    python 'len(' [my First Python] ')';
+    javascript [my First Javascript] '.length';
+}
+operation List_Pop pop Unary
+{
+    alias list.pop;
+    argument First;
+    python [my First Python] '.pop()';
+    javascript [my First Javascript] '.pop()';
+}
+operation List_Shift shift Unary
+{
+    alias list.shift;
+    argument First;
+    python [my First Python] '.pop(0)';
+    javascript [my First Javascript] '.shift()';
+}
+operation List_Split split Binary
+{
+    alias list.split;
+    argument String;
+    argument Delimiter;
+    javascript [my String Javascript] '.split(' [my Delimiter Javascript] ')';
+    python [my String Python] '.split(' [my Delimiter Python] ')';
+}
+operation Lowercase lowercase Unary
+{
+    argument First;
+}
+operation Multiply * Repeating
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '*';
+    class.property string Py_Operator '*';
+}
+operation New new Invocation
+{
+    argument Class_Name;
+    python [my Class_Name Python] '(' (i Python_Args ', ') ')';
+    javascript 'new ' [my Class_Name Javascript] '(' (i Javascript_Args ', ') ')';
+}
+operation Not not Unary
+{
+    argument First;
+    alias !;
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '!';
+    class.property string Py_Operator '!';
+}
+operation Not_Equal != Binary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '!=';
+    class.property string Py_Operator '!=';
+}
+operation Or or Repeating
+{
+    alias |;
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '||';
+    class.property string Py_Operator 'or';
+}
+operation Sql_Escape sql.escape Unary
+{
+    argument First;
+}
+operation Sql_Query sql.query Unary
+{
+    argument First;
+}
+operation Sql_Secure_Query sql.secure.query Unary
+{
+    argument First;
+}
+operation String string Unary
+{
+    argument First;
+}
+operation String_Equal string.eq Binary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '==';
+    class.property string Py_Operator '==';
+}
+operation String_Greater string.gt Binary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '>';
+    class.property string Py_Operator '>';
+}
+operation String_Greater_Equal string.ge Binary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '>=';
+    class.property string Py_Operator '>=';
+}
+operation String_Length string.length Unary
+{
+    argument First;
+    alias length;
+    python 'len(' [my First Python] ')';
+    javascript [my First Javascript] '.length';
+}
+operation String_Less string.lt Binary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '<';
+    class.property string Py_Operator '<';
+}
+operation String_Less_Equal string.le Binary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '<=';
+    class.property string Py_Operator '<=';
+}
+operation String_Not_Equal string.ne Binary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '!=';
+    class.property string Py_Operator '!=';
+}
+operation Substring substring
+{
+    argument String_Value;
+    argument Start_Index;
+    optional Length;
+    method Javascript_Generate
+    {
+        string Code [my String_Value Javascript] '.substr(' [my Start_Index Javascript];
+        if (defined [my Length])
+        {
+            append Code ', ' [my Length Javascript];
+        }
+        append Code ')';
+        my= Javascript Code;
+    }
+    method Python_Generate
+    {
+        string Code [my String_Value Python] '[' [my Start_Index Python] ':';
+        if (defined [my Length])
+        {
+            append Code [my Start_Index Python] '-1+' [my Length Python];
+        }
+        append Code ']';
+        my= Python Code;
+    }
+    
+}
+operation Subtract - Binary
+{
+    class.property integer Js_Precedence 6;
+    class.property integer Py_Precedence 6;
+    class.property string Js_Operator '-';
+    class.property string Py_Operator '-';
+}
+operation Uppercase uppercase Unary
+{
+    argument First;
+}
+operation Whitespace whitespace Unary
+{
+    argument First;
+    javascript '!' [my First Javascript] '.match(/\S/)';
+    python 're.match(r"^\s+$",' [my First Python] ')';
+}
+
+statement Assign = Scoped
+{
+    argument Variable;
+    argument Value;
+    method void Attributes
+    {
+        my= Variable (shift [my Listargs]);
+        my= Value (shift [my Listargs]);
+        if (greater (list.length [my Listargs]) 0)
+        {
+            string Message "Too many arguments: 2 expected";
+            my= Error Message;
+            error Message;
+        }
+    }
+    mumps ' set ' [my Variable Mumps] '=' [my Value Mumps, line];
+    javascript [my Variable Javascript] ' = ' [my Value Javascript] ';';
+    python [my Variable Python] ' = ' [my Value Python];
+}
+
+statement Break break Line;
+statement Call . Invocation
+{
+    argument Target;
+    argument Method;
+    python [my Target Python] '.' [my Method Python] '(' (i Python_Args ', ') ')';
+    javascript [my Target Javascript] '.' [my Method Javascript] '(' (i Javascript_Args ', ') ');';
+}
+statement Catch catch Scoped;
+statement Continue continue Line;
+
+statement Class class Class
+{
+    property flag Generate_Constructor false;
+    property list Property_Statements;
+    property list Main_Body;
+
+    argument Name;
+
+    method Structure
+    {
+        writeline '*** ' [class.name] '.Structure begins ***';
+        flag Generate true;
+        if (and (defined [my Block]) (defined [my Block Statements]))
+        {
+            foreach [my Block Statements] Statement
+            {
+                writeline 'iterate statement ' Statement;
+                if (isa Statement Constructor_Statement)
+                {
+                    writeline 'Found Constructor Already';
+                    = Generate false;
+                }
+                if (isa Statement Property_Statement)
+                {
+                    string Prop_Text (. Statement To_String);
+                    writeline 'Found Property Statement ' Prop_Text;
+                    list.append [my Property_Statements] Statement;
+                }
+                else
+                {
+                    comment writeline 'Main Body Statement ' Statement;
+                    list.append [my Main_Body] Statement;
+                }
+            }
+        }
+        if (and Generate (gt (list.length [my Property_Statements]) 0))
+        {
+            my= Generate_Constructor true;
+        }
+        writeline '*** ' [class.name] '.Structure determined Generate_Constructor is ' [my Generate_Constructor] ' ***';
+    }
+    
+    method void Python_Generate
+    {
+        writeline 'Class Python Generate Begin';
+        string Arguments (i Python_Full_Args ' ');
+        string Block;
+        if [my Generate_Constructor]
+        {
+            writeline "    generating python constructor";
+            string Prop_Code '';
+            entity Prop;
+            foreach [my Property_Statements] Prop
+            {
+                writeline '        property python ';
+                append Prop_Code [. Prop Python] [line];
+            }
+            string Constructor 'def __init__(self):' [line];
+            append Constructor (i Indent Prop_Code);
+            = Block (append ':' [line]);
+            append Block (i Indent Constructor);
+            append Block [my Block Python_Statements];
+        }
+        else
+        {
+            writeline '    generating normal python block';
+            = Block (i Python_Block);
+        }
+        string Code 'class ' Arguments Block;
+        writeline 'class code ' Code;
+        writeline 'Class Python Generate End';
+        my= Python Code;
+    }
+
+    method void Javascript_Generate
+    {
+        string Arguments (i Javascript_Full_Args ' ');
+        string Block;
+        if [my Generate_Constructor]
+        {
+            string Prop_Code '';
+            entity Prop;
+            foreach [my Property_Statements] Prop
+            {
+                append Prop_Code [. Prop Javascript] [line];
+            }
+            string Constructor 'constructor()' [line] '{' [line];
+            append Constructor (i Indent Prop_Code);
+            append Constructor '}';
+            = Block (append [line] '{' [line]);
+            append Block (i Indent Constructor);
+            append Block [my Block Javascript_Statements];
+            append Block '}' [line];
+        }
+        else
+        {
+            = Block (i Javascript_Block);
+        }
+        string Code 'class ' Arguments Block;
+        my= Javascript Code;
+    }
+
+}
+
+statement Class_Method class.method Method
+{
+    argument Return_Type;
+    argument Name;
+    method void Debug_Generate
+    {
+        string Code 'class.method';
+        entity Arg;
+        foreach [my Arguments] Arg
+        {
+            append Code ' ' [my Arg Debug];
+        }
+        append Code ' {' [line]
+            'entity Exc (. Exp Child ' [my End_Line] ');' [line]
+            'string Exs;' [line];
+        todo ' append variables here';
+        append Code [my Block Gal_Statements];
+        append Code '}';
+        my= Debug Code;
+    }
+    method void Python_Generate
+    {
+        string Code '@classmethod' [line] 'def ' [my Name Python] '(cls';
+        string Args (i Python_Args ', ');
+        if (string.gt Args '')
+        {
+            append Code ', ' Args;
+        }
+        append Code ')' (i Python_Block);
+        my= Python Code;
+    }
+}
+
+statement Class_Property class.property Line
+{
+    argument Data_Type;
+    argument Name;
+    optional Value;
+    method void Python_Generate
+    {
+        string Name_Code [my Name Python];
+        string Value_Code 'None';
+        if (defined [my Value])
+        {
+            = Value_Code [my Value Python];
+        }
+        string Code Name_Code ' = ' Value_Code;
+        my= Python Code;
+    }
+}
+
+statement Comment comment Comment
+{
+    python '# ' (i Python_Args ' ');
+    javascript '/* ' (i Javascript_Args ' ') ' */';
+}
+
+statement Dictionary dict Scoped
+{
+    argument Variable;
+    method void Python_Generate
+    {
+        string Variable_Code [my Variable Python];
+        string Value_Code "";
+        string Between '';
+        entity Argument;
+        foreach [my Listargs] Argument
+        {
+            append Value_Code Between [. Argument Python];
+            = Between ', ';
+        }
+        string Code Variable_Code ' = {' Value_Code '}';
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Variable_Code [my Variable Javascript];
+        string Value_Code "";
+        string Between '';
+        entity Argument;
+        foreach [my Listargs] Argument
+        {
+            append Value_Code Between [. Argument Javascript];
+            = Between ', ';
+        }
+        string Code 'var ' Variable_Code '= {' Value_Code '};';
+        my= Javascript Code;
+    }
+}
+
+statement Dictionary_Assign dict.= Scoped
+{
+    argument Variable;
+    argument Key;
+    argument Value;
+    python [my Variable Python] '[' [my Key Python] '] = ' [my Value Python] ';';
+    javascript [my Variable Javascript] '[' [my Key Javascript] '] = ' [my Value Javascript] ';';
+}
+
+statement Else else If;
+statement Else_If else.if If;
+statement Entity entity Declare;
+statement Error error Append_Args
+{
+    python 'raise Exception(' (i Python_Args ' + ') ')';
+    javascript 'throw ' (i Python_Args ' + ') ';';
+}
+statement Execute execute Line
+{
+    argument String;
+    python 'exec(' [my String Python] ')';
+    javascript 'eval(' [my String Javascript] ');';
+}
+statement Exit exit Line
+{
+    argument Return_Code;
+    method void Javascript_Generate
+    {
+        string RCode;
+        if (defined [my Return_Code])
+        {
+            = RCode [my Return_Code Javascript];
+        }
+        else
+        {
+            = RCode '0';
+        }
+        string Code 'process.exit(' RCode ');';
+        my= Javascript Code;
+    }
+    method void Python_Generate
+    {
+        string RCode;
+        if (defined [my Return_Code])
+        {
+            = RCode [my Return_Code Python];
+        }
+        else
+        {
+            = RCode '0';
+        }
+        string Code 'sys.exit(' RCode ');';
+        my= Python Code;
+    }
+}
+
+statement File_Readall file.readall Line
+{
+    argument File_Text;
+    argument File_Name;
+}
+
+statement File_Dump file.dump Line
+{
+    argument File_Text;
+    argument File_Name;
+}
+
+statement Flag flag Declare;
+statement Foreach foreach Scoped
+{
+    argument List;
+    argument Variable;
+    python 'for ' [my Variable Python] ' in ' [my List Python, my Block Python];
+    javascript 'for (' [my Variable Javascript] ' of ' [my List Javascript] ')' (i Javascript_Block);
+}
+statement Forward forward Line
+{
+    python '';
+    javascript '';
+}
+
+statement For_Range for.range For;
+statement Increment increment
+{
+    argument Numeric;
+    python [my Numeric Python] ' += 1';
+    javascript [my Numeric Javascript] '++;';
+}
+statement If if If
+{
+    argument Condition;
+    python 'if ' [my Condition Python] (i Python_Block);
+    javascript ' if (' [my Condition Javascript] ')' (i Javascript_Block);
+}
+
+statement Know know Line;
+
+class Statement_List [is Declare_Statement]
+{
+    class.property string Gal_Keyword 'list';
+    property entity Variable;
+    method void Attributes
+    {
+        my= Variable (shift [my Listargs]);
+    }
+    method void Python_Generate 
+    {
+        string Variable [my Variable Python];
+        string Args (i Python_Args ', ');
+        string Code Variable ' = [' Args ']';
+        my= Python Code;
+    }
+    method void Javascript_Generate 
+    {
+        string Variable [my Variable Javascript];
+        string Args (i Javascript_Args ', ');
+        string Code 'var ' Variable ' = [' Args '];';
+        my= Javascript Code;
+    }
+}
+
+statement List_Append push Append_Args
+{
+    alias list.push list.append;
+}
+statement Integer integer Declare
+{
+    argument Variable;
+    optional Value;
+}
+statement Main main Method
+{
+    python "if __name__ == '__main__'" 
+        (i Python_Block);
+
+    method void Javascript_Generate
+    {
+        entity Statement;
+        string Statements_Code '';
+        foreach [my Block Statements] Statement
+        {
+            append Statements_Code [. Statement Javascript, line];
+        }
+        string Code '/* Main Program Body */' [line]
+            Statements_Code [line];
+        my= Javascript Code;
+    }
+    
+    mumps 'main ; main entry point' [line,
+        my Block Mumps,
+        indent] 'quit' [line];
+}
+statement Method method Method
+{
+    todo "The method should know its variable names. Debug code should include the variable names.";
+    argument Data_Type;
+    argument Name;
+
+    method void Debug_Generate
+    {
+        string Code 'method';
+        entity Arg;
+        foreach [my Arguments] Arg
+        {
+            append Code ' ' [my Arg Debug];
+        }
+        append Code ' {' [line]
+            'entity Exc (. Exp Child ' [my End_Line] ');' [line]
+            'string Exs;' [line];
+        todo ' append variables here';
+        append Code [my Block Debug_Statements];
+        append Code '}';
+        my= Debug Code;
+    }
+
+    python 'def ' [my Name Python] '(self, ' (i Python_Args ', ') ')' 
+        (i Python_Block);
+    javascript [my Name Javascript] '(' (i Javascript_Args ', ') ')' 
+        (i Javascript_Block);
+}
+
+statement Module module Line;
+
+statement Number number Declare
+{
+    argument Variable;
+    optional Value;
+}
+statement Property property Property
+{
+    argument Data_Type;
+    argument Name;
+    optional Value;
+    method void Python_Generate
+    {
+        string Name_Code [my Name Python];
+        string Value_Code 'None';
+        writeline "before defined";
+        if (defined [my Value])
+        {
+            = Value_Code [my Value Python];
+        }
+        writeline "after defined";
+        string Code 'self.' Name_Code ' = ' Value_Code;
+        writeline "Property Code " Code;
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Name_Code [my Name Javascript];
+        string Value_Code 'null';
+        if (defined [my Value])
+        {
+            = Value_Code [my Value Javascript];
+        }
+        string Code 'this.' Name_Code ' = ' Value_Code;
+        my= Javascript Code;
+    }
+}
+
+
+statement Propset .= Assign
+{
+    argument Target;
+    argument Property;
+    argument Expression;
+    python [my Target Python] '.' [my Property Python] ' = ' [my Expression Python];
+    javascript [my Target.Javascript] '.' [my Property Javascript] ' = ' [my Expression Javascript] ';';
+}
+
+statement Read_Line readline Line
+{
+    argument Variable;
+    python [my Variable Python] ' = input()';
+    todo 'prompt-sync node.js module, or browser';
+    javascript [my Variable Javascript] ' = prompt();';
+}
+
+statement Return return Line
+{
+    argument Value;
+    python 'return ' [my Value Python];
+    javascript 'return ' [my Value Javascript] ';';
+}
+
+statement String string Append_Args
+{
+    property entity Variable;
+    method void Attributes
+    {
+        my= Variable (shift [my Listargs]);
+        .= [my Variable] Usage 'variable';
+        entity Argument;
+        foreach [my Listargs] Argument
+        {
+            .= Argument Usage 'string';
+        }
+    }
+    method void Python_Generate
+    {
+        string Var_Code [my Variable Python];
+        string Val_Code; 
+        if (gt (list.length [my Listargs]) 0)
+        {
+            = Val_Code (i Python_Args ' + ');
+        }
+        else
+        {
+            = Val_Code "None";
+        }
+        string Code Var_Code ' = ' Val_Code;
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Var_Code [my Variable Javascript];
+        string Val_Code; 
+        if (gt (list.length [my Listargs]) 0)
+        {
+            = Val_Code (append ' = ' (i Javascript_Args ' + '));
+        }
+        else
+        {
+            = Val_Code "";
+        }
+        string Code 'var ' Var_Code Val_Code ';';
+        my= Javascript Code;
+    }
+}
+
+statement Try try Scoped;
+statement Variant variant Declare;
+statement Write write Append_Args;
+
+syntax Is is
+{
+    argument Superclass;
+    python '(' [my Superclass Python] ')';
+    javascript ' extends ' [my Superclass Javascript];
+}
+syntax Dot .
+{
+    python (i Python_Full_Args '.');
+    javascript (i Javascript_Full_Args '.');
+}
+
+syntax Line line
+{
+    python '"\n"';
+    javascript '"\n"';
+}
+syntax Tab tab
+{
+    python '"\t"';
+    javascript '"\t"';
+}
+
+syntax Indent indent
+{
+    optional Count;
+}
+
+syntax String string Declare
+{
+    argument Variable;
+    optional Value;
+}
+syntax Number number Declare
+{
+    argument Variable;
+    optional Value;
+}
+syntax Integer integer Declare
+{
+    argument Variable;
+    optional Value;
+}
+syntax Entity entity Declare
+{
+    argument Variable;
+    optional Value;
+}
+syntax Variant variant Declare
+{
+    argument Variable;
+    optional Value;
+}
+syntax Flag flag Declare
+{
+    argument Variable;
+    optional Value;
+}
+
+syntax Class_Name class.name
+{
+    optional Entity;
+    method void Python_Generate
+    {
+        string Entity_Code 'self';
+        if (defined [my Entity])
+        {
+            = Entity_Code (. [my Entity] Python_Atom 99);
+        }
+        string Code Entity_Code '.__class__.__type__';
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Entity_Code 'this';
+        if (defined [my Entity])
+        {
+            = Entity_Code (. [my Entity] Javascript_Atom 99);
+        }
+        string Code Entity_Code '.className';
+        my= Python Code;
+    }
+}
+
+syntax Class_Property class.property;
+
+syntax True true Noun
+{
+    python 'True';
+    javascript 'true';
+    mumps '1';
+}
+
+syntax False false Noun
+{
+    python 'False';
+    javascript 'false';
+    mumps '0';
+}
+
+syntax Null null Noun
+{
+    python 'None';
+    javascript 'undefined';
+    mumps '""';
+}

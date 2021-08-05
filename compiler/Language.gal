@@ -1,0 +1,124 @@
+comment 'Language.gal';
+
+class Language
+{
+    method string Get [entity Element];
+    method void Generate [entity Element];
+}
+
+language Gal
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Gal]) [. Element Gal];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Gal_Generate;
+    }
+}
+
+language Mumps
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Mumps]) [. Element Mumps];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Mumps_Generate;
+    }
+}
+
+language Fallback
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Fallback]) [. Element Fallback];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Fallback_Generate;
+    }
+}
+
+language Python
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Python]) [. Element Python];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Python_Generate;
+    }
+}
+
+language Javascript
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Javascript]) [. Element Javascript];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Javascript_Generate;
+    }
+}
+
+language Debug
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Debug]) [. Element Debug];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Debug_Generate;
+    }
+}
+
+language Php
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Php]) [. Element Php];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Php_Generate;
+    }
+}
+
+language Java
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Java]) [. Element Java];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Java_Generate;
+    }
+}
+
+language Raku
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Raku]) [. Element Raku];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Raku_Generate;
+    }
+}

@@ -1,0 +1,174 @@
+comment 'Main.gal';
+
+main [string Format, string Source, string Target]
+{
+    flag Show_Tokens false;
+    flag Show_Elements false;
+    flag Show_Report true;
+    flag Show_Output false;
+    entity Document (new :Gal_File);
+    .= Document File_Name Source;
+    . Document Read;
+    string File_Text [. Document Input];
+    comment writeline "Input File:" [line] File_Text;
+    . Document Gal_Tokenize;
+    if Show_Tokens
+    {
+        writeline 'Tokens:';
+        entity Token;
+        integer Token_Number 0;
+        foreach [. Document Tokens] Token
+        {
+            increment Token_Number;
+            if (isa Token Token)
+            {
+                writeline Token_Number ' ' (. Token To_String);
+            }
+            else
+            {
+                writeline Token_Number ': "' Token '"';
+            }
+        }
+    }
+    writeline 'Parse';
+    . Document Gal_Parse;
+    writeline 'Structure';
+    . Document Structure;
+    writeline 'Child Attributes';
+    . Document Child_Attributes;
+    entity Element;
+    integer Element_Number 0;
+    if Show_Elements
+    {
+        writeline 'Elements:';
+        foreach [. Document Document_Body] Element
+        {
+            increment Element_Number;
+            if (or (isa Element Token) (isa Element Element))
+            {
+                writeline Element_Number ' ' (. Element To_String);
+            }
+            else
+            {
+                writeline Element_Number ': "' Element '"';
+            }
+        }
+        writeline '';
+    }
+    string Error_Report [null];
+    = Element_Number 0;
+    foreach [. Document Document_Body] Element
+    {
+        increment Element_Number;
+        if (and (defined [. Element Error]) (string.gt [. Element Error] ''))
+        {
+            append Error_Report Element_Number ' ' (. Element To_String) [line];
+        }
+    }
+    if (string.gt Error_Report null)
+    {
+        writeline "PARSE ERROR REPORT:";
+        writeline Error_Report;
+        return;
+    }
+    entity Language;
+    if (string.eq Format 'gal')
+    {
+        new Language :Gal;
+    }
+    else.if (string.eq Format 'fallback')
+    {
+        new Language :Fallback;
+    }
+    else.if (string.eq Format 'mumps')
+    {
+        new Language :Mumps;
+    }
+    else.if (string.eq Format 'python')
+    {
+        new Language :Python;
+    }
+    else.if (string.eq Format 'javascript')
+    {
+        new Language :Javascript;
+    }
+    else.if (string.eq Format 'debug')
+    {
+        new Language :Debug;
+    }
+    else
+    {
+        error 'Unknown format ' Format;
+    }
+
+    if (string.ne Format 'gal')
+    {
+        writeline 'Generate gal';
+        foreach [. Document Document_Body] Element
+        {
+            try
+            {
+                comment writeline 'gal gen ' (. Element To_String);
+                . Element Gal_Generate;
+            }
+            catch Error
+            {
+                writeline "ERROR GENERATING gal for " (. Element To_String) ': ' Error;
+                .= Element Error Error;
+            }
+        }
+        . Document Gal_Generate;
+    }
+    writeline 'Generate ' [. Language Gal_Keyword];
+    foreach [. Document Document_Body] Element
+    {
+        try
+        {
+            comment writeline 'gen ' [. Language Gal_Keyword] ' for ' (. Element To_String);
+            . Language Generate Element;
+        }
+        catch Error
+        {
+            writeline "ERROR GENERATING " Format ' for ' (. Element To_String) ': ' Error;
+            .= Element Error Error;
+        }
+    }
+    writeline 'Generating Document ' [. Language Gal_Keyword];
+    try
+    {
+        . Language Generate Document;
+    }
+    catch Error
+    {
+        writeline "ERROR GENERATING DOCUMENT " Format ' for ' (. Document To_String) ': ' Error;
+        .= Document Error Error;
+    }
+    if Show_Report
+    {
+        writeline 'Report:';
+        = Element_Number 0;
+        foreach [. Document Document_Body] Element
+        {
+            increment Element_Number;
+            string Text ' ' (. Language Get Element);
+            string Report (. Element To_String);
+            writeline Element_Number ' ' Report [line] Text;
+        }
+    }
+    string Compiled_Code (. Language Get Document);
+    if Show_Output
+    {
+        writeline "Document " Format ":" [line] Compiled_Code;
+    }
+    if [. Document Error]
+    {
+        writeline 'Document Error: ' [. Document Error];
+    }
+
+    .= Document File_Name Target;
+    .= Document Input Compiled_Code;
+    . Document Write;
+    writeline 'file "' Target '" written.';
+    writeline "end of gal main";
+}
+

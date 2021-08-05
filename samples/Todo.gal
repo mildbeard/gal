@@ -1,0 +1,9 @@
+main
+{
+    list Todo "Breakfast" "Lunch" "Dinner" "Bedtime";
+    string Item;
+    foreach Todo Item
+    {
+        writeline "- " Item;
+    }
+}

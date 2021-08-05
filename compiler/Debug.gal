@@ -1,0 +1,143 @@
+forward Element;
+
+class Context
+{
+    class.property hash Breakpoints;
+    property integer Level;
+    property entity Parent;
+    property integer Line_Number;
+    property integer Current_Line;
+    property hash Variables;
+    property flag Break_Flag [false];
+    property flag Child_Break [false];
+    method flag Update [integer Line_Number]
+    {
+        my= Current_Line Line_Number;
+        todo 'return true for conditional debug, false otherwise';
+        returnif [my Break_Flag] [true];
+        returnif (defined [key [class.property Breakpoints] Line_Number]) [true];
+        return [false];
+    }
+    method string Prompt [string Prompt_Text, string Default]
+    {
+        write Prompt_Text ' ';
+        if (defined Default)
+        {
+            write '[' Default '] ';
+        }
+        string User_Input;
+        readline User_Input;
+        returnif (notnull User_Input) User_Input;
+        returnif (defined Default) Default;
+        return [null];
+    }
+
+    method void Interactive [integer Line_Number]
+    {
+        string Prompt_Text 'debugger>';
+        string Input;
+        string Char1;
+        flag Exit_Flag [false];
+        string Print_Text '';
+        forever
+        {
+            = Input (i Prompt Prompt_Text);
+            contif (isnull Input);
+            = Char1 (firstchar Input);
+            list Items (split Input ' ');
+            if (string.eq Input 'q')
+            {
+                = Exit_Flag [true];
+                break;
+            }
+            if (string.eq Input 'c')
+            {
+                my= Break_Flag [false];
+                my= Child_Break [false];
+                break;
+            }
+            if (string.eq Input 'n')
+            {
+                my= Break_Flag [true];
+                my= Child_Break [false];
+                break;
+            }
+            if (string.eq Input 'i')
+            {
+                my= Break_Flag [true];
+                my= Child_Break [true];
+                break;
+            }
+            if (string.eq Input 'o')
+            {
+                my= Break_Flag [false];
+                my= Child_Break [false];
+                if (defined [my Parent])
+                {
+                    .= [my Parent] Break_Flag [true];
+                }
+                break;
+            }
+            if (string.eq Input 'l')
+            {
+                todo 'list';
+                continue;
+            }
+            if (string.eq Input 's')
+            {
+                todo 'stack';
+                continue;
+            }
+            if (string.eq Input 'v')
+            {
+                todo 'variables';
+                = Print_Text (list.get Items 1);
+                break;
+            }
+            if (string.eq Input 'g')
+            {
+                todo 'gal';
+                = Print_Text (list.get Items 1);
+                break;
+            }
+            if (string.eq Input 't')
+            {
+                todo 'target';
+                = Print_Text (list.get Items 1);
+                break;
+            }
+            if (string.eq Input 'b')
+            {
+                string Line_Number (list.get Items 1);
+                todo;
+                break;
+            }
+            writeline "ERROR: " Input " is not understood.";
+        }
+        if Exit_Flag
+        {
+            exit 0;
+        }
+        return Print_Text;
+    }
+
+    method void Set_Breakpoint [integer Line, flag State]
+    {
+        = [key [class.property Breakpoints] Line] State;
+    }
+    method flag Get_Breakpoint [integer Line]
+    {
+        returnif (defined [key [my Breakpoints] Line]) [true];
+        return [false];
+    }
+
+    method entity Child [integer Line_Number]
+    {
+        entity.new Child :Context;
+        .= Child Parent self;
+        .= Child Line_Number Line_Number;
+        .= Child Level (+ [my Level] 1);
+        .= Child Current_Line Line_Number;
+        return Child;
+    }
+}
