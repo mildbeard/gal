@@ -1,0 +1,250 @@
+comment 'Main.gal';
+
+main [string Format, string Source, string Target]
+{
+    flag Show_Tokens [false];
+    flag Show_Elements [false];
+    flag Show_Report [false];
+    flag Show_Output [false];
+    flag Show_Index [false];
+    flag Verbose [false];
+
+    flag Generate_Gal [false];
+    flag Generate_Fallback [false];
+
+    todo 'Initialize all supported output formats';
+    . :Gal Initialize;
+    . :Fallback Initialize;
+    . :Python Initialize;
+    . :Javascript Initialize;
+    entity.new This_Document :Gal_File;
+    .= This_Document File_Name Source;
+    . This_Document Read;
+    string File_Text [. This_Document Input];
+    comment writeline "Input File:" [line] File_Text;
+    . This_Document Gal_Tokenize;
+    if Show_Tokens
+    {
+        writeline 'Tokens:';
+        entity Item;
+        integer Item_Number 0;
+        foreach [. This_Document Tokens] Item
+        {
+            increment Item_Number;
+            if (isa Item :Token)
+            {
+                writeline Item_Number ' ' (. Item To_String);
+            }
+            else
+            {
+                writeline Item_Number ': "' Item '"';
+            }
+        }
+    }
+    if Verbose
+    {
+        writeline 'Parse';
+    }
+    . This_Document Gal_Parse;
+    if Verbose
+    {
+        writeline 'Child Attributes';
+    }
+    . This_Document Child_Attributes;
+    if Verbose
+    {
+        writeline 'Structure';
+    }
+    . This_Document Structure;
+    entity This_Element;
+    integer Element_Number 0;
+    if Show_Elements
+    {
+        writeline 'Elements:';
+        foreach [. This_Document Document_Body] This_Element
+        {
+            increment Element_Number;
+            if (or (isa This_Element :Token) (isa This_Element :Element))
+            {
+                writeline Element_Number ' ' (. This_Element To_String);
+            }
+            else
+            {
+                writeline Element_Number ': "' This_Element '"';
+            }
+        }
+        writeline '';
+    }
+    string Error_Report '';
+    = Element_Number 0;
+    foreach [. This_Document Document_Body] This_Element
+    {
+        increment Element_Number;
+        if (defined [. This_Element Error])
+        {
+            if (string.gt [. This_Element Error] '')
+            {
+                append Error_Report Element_Number ' ' (. This_Element To_String) [line];
+            }
+        }
+    }
+    if (string.gt Error_Report '')
+    {
+        writeline "PARSE ERROR REPORT:";
+        writeline Error_Report;
+        error "Syntax Error";
+    }
+    entity This_Language;
+    if (string.eq Format 'gal')
+    {
+        new This_Language :Gal;
+    }
+    else.if (or (string.eq Format 'fallback') (string.eq Format 'atomic'))
+    {
+        new This_Language :Fallback;
+    }
+    else.if (string.eq Format 'mumps')
+    {
+        new This_Language :Mumps;
+    }
+    else.if (string.eq Format 'python')
+    {
+        new This_Language :Python;
+    }
+    else.if (string.eq Format 'javascript')
+    {
+        new This_Language :Javascript;
+    }
+    else.if (string.eq Format 'debug')
+    {
+        new This_Language :Debug;
+    }
+    else.if (string.eq Format 'fbpy')
+    {
+        new This_Language :Python_Fallback;
+        = Generate_Fallback [true];
+    }
+    else.if (string.eq Format 'fbjs')
+    {
+        new This_Language :Javascript_Fallback;
+        = Generate_Fallback [true];
+    }
+    else
+    {
+        error 'Unknown format ' Format;
+    }
+
+    if Generate_Gal
+    {
+        if Verbose
+        {
+            writeline 'Generate gal';
+        }
+        foreach [. This_Document Document_Body] This_Element
+        {
+            try
+            {
+                comment writeline 'gal gen ' (. This_Element To_String);
+                . This_Element Gal_Generate;
+            }
+            catch Error
+            {
+                writeline "ERROR GENERATING gal for " (. This_Element To_String) ': ' Error;
+                .= This_Element Error Error;
+            }
+        }
+        . This_Document Gal_Generate;
+    }
+    if Generate_Fallback
+    {
+        if Verbose
+        {
+            writeline 'Generate fallback';
+        }
+        foreach [. This_Document Document_Body] This_Element
+        {
+            try
+            {
+                comment writeline 'fallback gen ' (. This_Element To_String);
+                . This_Element Fallback_Generate;
+            }
+            catch Error
+            {
+                writeline "ERROR GENERATING fallback for " (. This_Element To_String) ': ' Error;
+                .= This_Element Error Error;
+            }
+        }
+        . This_Document Gal_Generate;
+    }
+    if Verbose
+    {
+        writeline 'Generate ' [. This_Language Gal_Keyword];
+    }
+    foreach [. This_Document Document_Body] This_Element
+    {
+        try
+        {
+            comment writeline 'gen ' [. This_Language Gal_Keyword] ' for ' (. This_Element To_String);
+            . This_Language Generate This_Element;
+        }
+        catch Error
+        {
+            string Target_Code [. This_Element Gal];
+            writeline "ERROR GENERATING " Format ': ' Error ' code: ' Target_Code;
+            .= This_Element Error Error;
+        }
+    }
+    if Verbose
+    {
+        writeline 'Generating This_Document ' [. This_Language Gal_Keyword];
+    }
+    try
+    {
+        . This_Language Generate This_Document;
+    }
+    catch Error
+    {
+        writeline "ERROR GENERATING DOCUMENT " Format ' for This_Document: ' Error;
+        .= This_Document Error Error;
+    }
+    if Show_Report
+    {
+        writeline 'Report:';
+        = Element_Number 0;
+        foreach [. This_Document Document_Body] This_Element
+        {
+            increment Element_Number;
+            string Text ' ' (. This_Language Get This_Element);
+            string Report (. This_Element To_String);
+            writeline Element_Number ' ' Report [line] Text;
+        }
+    }
+    string Compiled_Code (. This_Language Get This_Document);
+    if Show_Output
+    {
+        writeline "Document " Format ":" [line] Compiled_Code;
+    }
+    if [. This_Document Error]
+    {
+        writeline 'Document Error: ' [. This_Document Error];
+    }
+
+    .= This_Document File_Name Target;
+    .= This_Document Input Compiled_Code;
+    . This_Document Write;
+    if Show_Index
+    {
+        string Class_Name;
+        integer Count;
+        iterate [. :Factory Element_Index] Class_Name Count
+        {
+            writeline Class_Name ': ' Count;
+        }
+    }
+    if Verbose
+    {
+        writeline 'file "' Target '" written.';
+        writeline "end of gal main";
+    }
+}
+

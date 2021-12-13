@@ -1,0 +1,327 @@
+comment 'Additions.gal';
+
+syntax My my
+{
+    alias self i me this;
+    property flag Has_Arguments [false];
+    method void Attributes
+    {
+        comment 'look up the first argument in the parent context to know that it is a list.';
+        my= Has_Arguments (gt (list.length [my Listargs]) 0);
+        if [my Has_Arguments]
+        {
+            entity Argument (list.shift [my Listargs]);
+            todo 'this must be a token';
+            if (not (isa Argument :Token))
+            {
+                error (i Failure_Message "Property name must be a token");
+            }
+            string Property [. Argument Input];
+            entity Definition (i Lookup Property);
+            returnif (not Definition);
+            string Data_Type [. Definition Data_Type];
+            returnif (not Data_Type);
+            .= Argument Data_Type Data_Type;
+            my= Data_Type Data_Type;
+        }
+    }
+    method void Fallback_Generate
+    {
+        entity Argument;
+        if [my Has_Arguments]
+        {
+            string Gal_Code '[. [self]';
+            foreach [my Arguments] Argument
+            {
+                append Gal_Code ' ' [. Argument Fallback];
+            }
+            append Gal_Code ']';
+            my= Fallback Gal_Code;
+        }
+        else
+        {
+            my= Fallback '[self]';
+        }
+    }
+    python 'self';
+    javascript 'this';
+}
+
+operation Firstchar firstchar Unary
+{
+    argument String_Value;
+    comment fallback '(substring ' [my String_Value Fallback] ' 0 1)';
+    python [my String_Value Python] '[0]';
+    javascript [my String_Value Javascript] '.charAt(0)';
+}
+
+operation Lastchar lastchar Unary
+{
+    argument String_Value;
+    comment fallback '(substring ' [my String_Value Fallback] ' (- (length ' [my String_Value Fallback] ')) 1)';
+    python [my String_Value Python] '[-1]';
+    javascript [my String_Value Javascript] '.charAt(' [my String_Value Javascript] '.length-1)';
+}
+
+operation I i Invocation
+{
+    alias self me this;
+    method void Fallback_Generate
+    {
+        entity Argument;
+        string Gal_Code '(. [self]';
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Fallback];
+        }
+        append Gal_Code ')';
+        my= Fallback Gal_Code;
+    }
+}
+
+operation Key_Exists key.exists
+{
+    argument Dictionary;
+    argument Key;
+    fallback '(defined [key ' [my Dictionary Fallback] ' ' [my Key Fallback] '])';
+}
+
+operation Key_Get key.get
+{
+    argument Dictionary;
+    argument Key;
+    fallback '[key ' [my Dictionary Fallback] ' ' [my Key Fallback] ']';
+}
+
+statement I i Invocation
+{
+    alias self this me my;
+    method void Fallback_Generate
+    {
+        entity Argument;
+        string Gal_Code '. [self]';
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Fallback];
+        }
+        append Gal_Code ';';
+        my= Fallback Gal_Code;
+    }
+}
+
+statement Entity_New entity.new Declare
+{
+    argument Variable;
+    argument Class;
+    method void Fallback_Generate
+    {
+        entity Argument;
+        string Gal_Code 'entity ' [my Variable Fallback] ' (new ' [my Class Fallback];
+        foreach [my Listargs] Argument
+        {
+            append Gal_Code ' ' [. Argument Fallback];
+        }
+        append Gal_Code ');';
+        my= Fallback Gal_Code;
+    }
+}
+
+statement Contif continue.if Line
+{
+    alias contif;
+    argument Condition;
+    fallback 'if ' [my Condition Fallback, line]
+        '{' [line,
+        indent] 'continue;' [line]
+        '}' [line];
+}
+
+statement Breakif break.if Line
+{
+    alias breakif;
+    argument Condition;
+    fallback 'if ' [my Condition Fallback, line]
+        '{' [line,
+        indent] 'break;' [line]
+        '}' [line];
+}
+
+statement Alias alias Line
+{
+    method void Fallback_Generate
+    {
+        string Code 'class.property string Aliases "';
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Code ' ' [. Argument Fallback];
+        }
+        append Code ' ";';
+        my= Fallback Code;
+    }
+}
+
+operation Dictionary_Default dict.default
+{
+    argument Dictionary;
+    argument Key;
+    argument Default;
+
+    fallback '(. :Runtime Dict_Default ' [my Dictionary Fallback] ' ' [my Key Fallback] ' ' [my Default Fallback] ')';
+}
+
+operation Dictionary_Defined dict.defined
+{
+    argument Dictionary;
+    argument Key;
+    fallback '(. :Runtime Dict_Defined ' [my Dictionary Fallback] ' ' [my Key Fallback] ' ' [my Default Fallback] ')';
+}
+
+statement Entities entities Line
+{
+    method void Fallback_Generate
+    {
+        string Gal_Code '';
+        string Between '';
+        string Keyword 'entity';
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code Between Keyword ' ' [. Argument Fallback] ';';
+            = Between [line];
+        }
+        my= Fallback Gal_Code;
+    }
+}
+
+statement My_Equal my= Assign
+{
+    alias my= self=;
+    argument Property;
+    argument Value;
+    fallback '.= [self] ' [my Property Fallback] ' ' [my Value Fallback] ';';
+    python 'self.' [my Property Python] ' = ' [my Value Python] [line];
+    javascript 'this.' [my Property Javascript] ' = ' [my Value Javascript] ';' [line];
+}
+
+statement Integers 'integers' Line
+{
+    method void Fallback_Generate
+    {
+        string Gal_Code '';
+        string Between '';
+        string Keyword 'integer';
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code Between Keyword ' ' [. Argument Fallback] ';';
+            = Between [line];
+        }
+        my= Fallback Gal_Code;
+    }
+}
+
+statement Return_If returnif Line
+{
+    alias return.if;
+    argument Condition 'value';
+    optional Return_Value 'value';
+    method void Fallback_Generate
+    {
+        string Code 'if ' [my Condition Fallback, line] '{' [line, indent] 'return';
+        if (defined [my Return_Value])
+        {
+            append Code ' ' [my Return_Value Fallback];
+        }
+        append Code ';' [line] '}' [line];
+        my= Fallback Code;
+    }
+}
+
+statement New new Line
+{
+    argument Variable;
+    argument Class;
+    python [my Variable Python] ' = ' [my Class Python] '(' (i Python_Args ', ') ')' [line];
+    javascript [my Variable Javascript] ' = new ' [my Class Javascript] '(' (i Javascript_Args ', ') ');' [line];
+}
+statement Todo todo Comment
+{
+    fallback 'comment "TODO:"' (i Fallback_Args) ';';
+}
+statement Question question Comment
+{
+    fallback 'comment "QUESTION:"' (i Fallback_Args) ';';
+}
+statement Answer question Comment
+{
+    fallback 'comment "ANSWER:"' (i Fallback_Args) ';';
+}
+
+statement Write_Line writeline Append_Args
+{
+    method void Python_Generate
+    {
+        string Code 'print(' (i Python_Args ', ');
+        if (gt (list.length [my Listargs]) 1)
+        {
+            append Code ",sep=''";
+        }
+        append Code ")" [line];
+        my= Python Code;
+    }
+    javascript 'console.log(' (i Javascript_Args ', ') ');' [line];
+    mumps 'write ' (i Mumps_Args ',') ',!';
+}
+
+syntax Repeating repeating;
+syntax Optional optional;
+
+operation M_Atom m.atom Invocation
+{
+    argument Element;
+    fallback '(. ' [my Element Fallback] ' M_Atom)';
+}
+operation M_Expr m.expr Invocation
+{
+    argument Element;
+    fallback '(. ' [my Element Fallback] ' M_Expr)';
+}
+operation Mumps mumps Invocation
+{
+    argument Element;
+    fallback '(. ' [my Element Fallback] ' Mumps)';
+}
+statement M_Atom m.atom Invocation
+{
+    argument Element;
+    argument Value;
+    fallback '.= ' [my Element Fallback] ' M_Atom ' [my Value Fallback] ';';
+}
+statement M_Expr m.expr Invocation
+{
+    argument Element;
+    argument Value;
+    fallback '.= ' [my Element Fallback] ' M_Expr ' [my Value Fallback] ';';
+}
+statement M m Invocation
+{
+    argument Element;
+    argument Value;
+    fallback '.= ' [my Element Fallback] ' Mumps ' [my Value Fallback] ';';
+}
+
+statement Unless unless If
+{
+    argument Condition;
+    fallback 'if (not ' [my Condition Fallback] ')' (i Fallback_Block);
+}
+
+statement Symbol symbol Class
+{
+    argument Class_Name;
+    fallback 'class ' [my Class_Name Fallback] 
+        ' [is Symbol]'
+        (i Fallback_Args) 
+        (i Fallback_Block);
+}

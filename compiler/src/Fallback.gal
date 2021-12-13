@@ -1,0 +1,370 @@
+comment 'Fallback.gal';
+
+class Definition_Statement [is Scoped_Statement]
+{
+    class.property string Gal_Keyword;
+    class.property string Base_Class;
+    property entity Name_Arg;
+    property entity Keyword; 
+    property entity Root_Type;
+
+    property flag Generate_Attributes;
+    property list Argument_Statements;
+    property string Declarations '';
+
+    method void Attributes
+    {
+        my= Name_Arg (list.shift [my Listargs]);
+        my= Keyword (list.shift [my Listargs]);
+        if (gt (list.length [my Listargs]) 0)
+        {
+            my= Root_Type (list.shift [my Listargs]);
+            comment writeline "Assign Root Type: " [my Root_Type Gal];
+        }
+    }
+
+    method void Structure
+    {
+        returnif (not [my Re_Structure]);
+        my= Re_Structure [false];
+        i Base_Structure;
+        my= Generate_Attributes [true];
+        if (and (defined [my Block]) (defined [my Block Statements]))
+        {
+            comment writeline "Main Structure " [class.name] ' ' [my Name_Arg Input];
+            foreach [my Block Statements] Statement
+            {
+                comment writeline "Structure Statement " [class.name Statement];
+                if (and (isa Statement Method_Statement)
+                             (string.eq [. Statement Method_Name Input] 'Attributes')) 
+                {
+                    my= Generate_Attributes [false];
+                }
+                else.if (isa Statement Argument_Statement)
+                {
+                    list.append [my Argument_Statements] Statement;
+                }
+            }
+        }
+        entity Element;
+        foreach [my Elements] Element
+        {
+            comment .= Element Parent [self];
+        }
+        comment writeline '*** ' [class.name] ' ' [my Name_Arg Input] '.Structure determined Generate_Attributes is ' [my Generate_Attributes] ' ***';
+    }
+
+    method void Fallback_Generate
+    {
+        string Gal_Code 'class ' (classpropget Base_Class) '_' [my Name_Arg Fallback];
+        if (defined [my Root_Type]) 
+        {
+            entity PC [my Root_Type];
+            if (not (defined [. PC Fallback]))
+            {
+                . PC Fallback_Generate;
+            }
+            string Underscore '_';
+            string PCFB [. PC Fallback];
+            append Gal_Code ' [is ' PCFB;
+            append Gal_Code Underscore;
+            append Gal_Code (classpropget Base_Class) ']';
+            comment writeline "PCFB " PCFB " object: " (. PC To_String) ' self: ' (i To_String) ' gal: ' [my Gal];
+        }
+        else
+        {
+            append Gal_Code ' [is ' (classpropget Base_Class) ']';
+        }
+        append Gal_Code [line] '{' [line,
+               indent] "class.property string Gal_Keyword '" [my Keyword Fallback] "';" [line];
+        if [my Block]
+        {
+            append Gal_Code [my Block Fallback_Statements];
+        }
+        if [my Generate_Attributes]
+        {
+            string Attribute_Statements '';
+            entity Statement;
+            if [my Block]
+            {
+                foreach [my Block Statements] Statement
+                {
+                    if (defined [. Statement Gal_Declaration])
+                    {
+                        append Attribute_Statements [. Statement Gal_Declaration];
+                    }
+                }
+                string Indented (i Indent Attribute_Statements);
+                comment writeline '*** ' [class.name] ' ' [my Name_Arg Fallack] ' - Attribute Statements: ' Attribute_Statements [line] 'indented:' [line] Indented;
+                string Attribute_Method 
+                    'method void Attributes' [line]
+                    '{' [line]
+                    Indented
+                    '}' [line];
+                append Gal_Code (i Indent Attribute_Method);
+            }
+        }
+        append Gal_Code '}' [line];
+        my= Fallback Gal_Code;
+    }
+}
+
+class Statement_Statement [is Definition_Statement]
+{
+    class.property string Gal_Keyword 'statement';
+    class.property string Base_Class 'Statement';
+}
+
+class Statement_Operation [is Definition_Statement]
+{
+    class.property string Gal_Keyword 'operation';
+    class.property string Base_Class 'Operation';
+}
+
+class Statement_Syntax [is Definition_Statement]
+{
+    class.property string Gal_Keyword 'syntax';
+    class.property string Base_Class 'Syntax';
+}
+
+statement Argument argument Argument
+{
+    property entity Argument_Name;
+    property entity Type_Value;
+    method void Attributes
+    {
+        if (= (list.length [my Listargs]) 0)
+        {
+            error 'missing required Argument_Name';
+        }
+        my= Argument_Name (list.shift [my Listargs]);
+        .= [my Argument_Name] Usage 'variable';
+        if (gt (list.length [my Listargs]) 0)
+        {
+            my= Type_Value (list.shift [my Listargs]);
+            .= [my Type_Value] Usage 'value';
+        }
+    }
+    method void Fallback_Generate
+    {
+        string Definition 'property entity ' [my Argument_Name Fallback] ';';
+        string Code 
+            "if (= (list.length [. [self] Listargs]) 0)" [line] 
+            "{" [line, indent] 
+                "error 'missing required " [my Argument_Name Gal] "';" [line] 
+            "}" [line];
+        append Code '.= [self] ' [my Argument_Name Fallback] ' (list.shift [. [self] Listargs]);' [line];
+        if (defined [my Type_Value])
+        {
+            append Code '.= [. [self] ' [my Argument_Name Fallback] '] Usage ' [my Type_Value Fallback] ';' [line];
+        }
+        my= Gal_Declaration Code;
+        my= Fallback Definition;
+    }
+}
+
+statement Optional optional Argument
+{
+    property entity Argument_Name;
+    property entity Type_Value;
+    method void Attributes
+    {
+        if (= (list.length [my Listargs]) 0)
+        {
+            error [class.name] ' missing required Argument_Name';
+        }
+        my= Argument_Name (list.shift [my Listargs]);
+        .= [my Argument_Name] Usage 'variable';
+        if (gt (list.length [my Listargs]) 0)
+        {
+            my= Type_Value (list.shift [my Listargs]);
+            .= [my Type_Value] Usage 'value';
+        }
+    }
+    method void Fallback_Generate
+    {
+        string Definition 'property entity ' [my Argument_Name Fallback] ';';
+        string Code 'if (gt (list.length [. [self] Listargs]) 0)' [line]
+            '{' [line];
+        append Code [indent]
+            '.= [self] ' [my Argument_Name Fallback] ' (list.shift [. [self] Listargs]);' [line];
+        if (defined [my Type_Value])
+        {
+            append Code [indent] '.= [. [self] ' [my Argument_Name Fallback];
+            append Code '] Usage ' [my Type_Value Fallback] ';' [line];
+        }
+        append Code '}' [line];
+        my= Gal_Declaration Code;
+        my= Fallback Definition;
+    }
+}
+
+
+class Statement_Fallback [is Append_Args_Statement]
+{
+    class.property string Gal_Keyword 'fallback';
+    method void Fallback_Generate
+    {
+        string Gal_Code 
+            'method void Fallback_Generate' [line] 
+            '{' [line, 
+                indent] 'string Gal_Code';
+        entity Argument;
+        list.foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Fallback];
+        }
+        append Gal_Code ';' [line, indent] 'my= Fallback Gal_Code;' [line] '}' [line];
+        my= Fallback Gal_Code;
+    }
+}
+
+class Statement_Javascript [is Append_Args_Statement]
+{
+    class.property string Gal_Keyword 'javascript';
+    method void Fallback_Generate
+    {
+        string Gal_Code 
+            'method void Javascript_Generate' [line] 
+            '{' [line, 
+                indent] 'string Javascript_Code';
+        entity Argument;
+        list.foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Fallback];
+        }
+        append Gal_Code ';' [line, indent] 'my= Javascript Javascript_Code;' [line] '}' [line];
+        my= Fallback Gal_Code;
+    }
+}
+
+
+class Statement_Mumps [is Append_Args_Statement]
+{
+    class.property string Gal_Keyword 'mumps';
+    method void Fallback_Generate
+    {
+        string Gal_Code 
+            'method void Mumps_Generate' [line] 
+            '{' [line, 
+                indent] 'string Mumps_Code';
+        entity Argument;
+        list.foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Fallback];
+        }
+        append Gal_Code ';' [line, indent] 
+        'my= Mumps Mumps_Code;' [line] '}' [line];
+        my= Fallback Gal_Code;
+    }
+}
+
+class Statement_Python [is Line_Statement]
+{
+    class.property string Gal_Keyword 'python';
+    method void Fallback_Generate
+    {
+        string Gal_Code 
+            'method void Python_Generate' [line] 
+            '{' [line, 
+                indent] 'string Python_Code';
+        entity Argument;
+        list.foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Fallback];
+        }
+        append Gal_Code ';' [line, indent] 
+        'my= Python Python_Code;' [line] '}' [line];
+        my= Fallback Gal_Code;
+    }
+}
+
+class Statement_Php [is Line_Statement]
+{
+    class.property string Gal_Keyword 'foo';
+    method void Fallback_Generate
+    {
+        string Gal_Code 
+            'method void Python_Generate' [line] 
+            '{' [line, 
+                indent] 'string Php_Code';
+        entity Argument;
+        list.foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Fallback];
+        }
+        append Gal_Code ';' [line, indent] 
+        'my= Php Php_Code;' [line] '}' [line];
+        my= Fallback Gal_Code;
+    }
+}
+
+class Statement_Java [is Line_Statement]
+{
+    class.property string Gal_Keyword 'foo';
+    method void Fallback_Generate
+    {
+        string Gal_Code 
+            'method void Python_Generate' [line] 
+            '{' [line, 
+                indent] 'string Java_Code';
+        entity Argument;
+        list.foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Fallback];
+        }
+        append Gal_Code ';' [line, indent] 
+        'my= Java Java_Code;' [line] '}' [line];
+        my= Fallback Gal_Code;
+    }
+}
+
+class Statement_Raku [is Line_Statement]
+{
+    class.property string Gal_Keyword 'foo';
+    method void Fallback_Generate
+    {
+        string Gal_Code 
+            'method void Python_Generate' [line] 
+            '{' [line, 
+                indent] 'string Raku_Code';
+        entity Argument;
+        list.foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Fallback];
+        }
+        append Gal_Code ';' [line, indent] 
+        'my= Raku Raku_Code;' [line] '}' [line];
+        my= Fallback Gal_Code;
+    }
+}
+
+class Statement_Language [is Definition_Statement]
+{
+    todo 'iterate handlers and append them to the target class. tell each handler the name of its generator method e.g. Python_Generate.';
+    class.property string Gal_Keyword 'language';
+    property entity Language_Name;
+    method void Attributes
+    {
+        my= Language_Name (list.shift [my Listargs]);
+    }
+    comment "method void Structure";
+    method void Model;
+    method void Fallback_Generate
+    {
+        string Gal_Body 
+            "property string Gal_Keyword '" (lowercase [my Language_Name Fallback]) "';" [line];
+        append Gal_Body [my Declarations];
+        assign Gal_Body (i Indent Gal_Body);
+        if [my Block]
+        {
+            append Gal_Body [my Block Fallback_Statements];
+        }
+        string Gal_Code
+            'class :' [my Language_Name Fallback] ' [is :Language]' [line]
+            '{' [line]
+            Gal_Body
+            '}' [line];
+        my= Fallback Gal_Code;
+    }
+}

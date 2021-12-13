@@ -1,0 +1,445 @@
+comment 'Atomic_Statement_AM.gal';
+
+statement Add add Line
+{
+    argument Variable;
+    python [my Variable Python] ' += ' (i Python_Args ' + ') [line];
+    Javascript [my Variable Javascript] ' += ' (i Javascript_Args ' + ') [line];
+}
+
+statement Append append Append_Args
+{
+    alias string.append;
+    argument Variable;
+    python [my Variable Python] ' += ' (i Python_String_Args ' + ') [line];
+    javascript [my Variable Javascript] ' += ' (i Javascript_Args ' + ') ';' [line];
+}
+
+statement Assign = Scoped
+{
+    argument Variable;
+    argument Value;
+    method void Attributes
+    {
+        my= Variable (shift [my Listargs]);
+        my= Value (shift [my Listargs]);
+        if (greater (list.length [my Listargs]) 0)
+        {
+            string Message "Too many arguments: 2 expected";
+            my= Error Message;
+            error Message;
+        }
+    }
+    mumps ' set ' [my Variable Mumps] '=' [my Value Mumps, line];
+    javascript [my Variable Javascript] ' = ' [my Value Javascript] ';' [line];
+    method void Python_Generate
+    {
+        if (not (defined [my Variable Python])) 
+        {
+            error (i Failure_Message 'missing Variable Python');
+        }
+        if (not (defined [my Value Python])) 
+        {
+            error (i Failure_Message 'missing Value Python');
+        }
+        string Code [my Variable Python] ' = ' [my Value Python] [line];
+        my= Python Code;
+    }
+}
+
+statement Break break Line
+{
+    python 'break' [line];
+    javascript 'break;' [line];
+}
+statement Call . Invocation
+{
+    argument Target;
+    argument Method;
+    python [my Target Python] '.' [my Method Python] '(' (i Python_Args ', ') ')' [line];
+    javascript [my Target Javascript] '.' [my Method Javascript] '(' (i Javascript_Args ', ') ');' [line];
+}
+statement Catch catch Scoped
+{
+    optional Variable;
+    method void Python_Generate
+    {
+        string Code 'except Exception';
+        if (defined [my Variable])
+        {
+            append Code ' as ' [my Variable Python];
+        }
+        append Code (i Python_Block);
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Code 'catch';
+        if (defined [my Variable])
+        {
+            append Code ' (' [my Variable Javascript] ')';
+        }
+        append Code (i Javascript_Block);
+        my= Javascript Code;
+    }
+}
+
+statement Continue continue Line
+{
+    python 'continue' [line];
+    javascript 'continue;' [line];
+}
+
+statement Class_Method class.method Class_Method
+{
+    argument Return_Type;
+    argument Method_Name;
+    property string Python_Class 'cls';
+    method void Attributes
+    {
+        my= Return_Type (shift [my Listargs]);
+        my= Method_Name (shift [my Listargs]);
+        my= Method_Context [self];
+    }
+    method void Python_Generate
+    {
+        string Code '@classmethod' [line] 'def ' [my Method_Name Python] '(cls';
+        string Args (i Python_Args ', ');
+        if (string.gt Args '')
+        {
+            append Code ', ' Args;
+        }
+        append Code ')' (i Python_Block);
+        my= Python Code;
+    }
+    javascript 'static ' [my Method_Name Javascript] '(' (i Javascript_Args ', ') ')' 
+        (i Javascript_Block);
+}
+
+statement Class_Property class.property Line
+{
+    argument Data_Type;
+    argument Property_Name;
+    optional Value;
+    method void Python_Generate
+    {
+        string Name_Code [my Property_Name Python];
+        string Value_Code 'None';
+        string DT [my Data_Type Input];
+        = DT (append ' ' DT ' ');
+        if (contains ' dict dictionary hash ' DT)
+        {
+            = Value_Code '{}';
+        }
+        else.if (contains ' list array ' DT)
+        {
+            = Value_Code '[]';
+        }
+        if (defined [my Value])
+        {
+            = Value_Code [my Value Python];
+        }
+        string Code Name_Code ' = ' Value_Code [line];
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Name_Code [my Property_Name Javascript];
+        string Value_Code 'undefined';
+        string DT [my Data_Type Input];
+        = DT (append ' ' DT ' ');
+        if (contains ' dict dictionary hash ' DT)
+        {
+            = Value_Code '{}';
+        }
+        else.if (contains ' list array ' DT)
+        {
+            = Value_Code '[]';
+        }
+        if (defined [my Value])
+        {
+            = Value_Code [my Value Javascript];
+        }
+        string Code 'static ' Name_Code ' = ' Value_Code ';' [line];
+        my= Javascript Code;
+    }
+}
+
+statement Comment comment Comment
+{
+    python '# ' (i Python_Args ' ') [line];
+    javascript '/* ' (i Javascript_Args ' ') ' */' [line];
+}
+
+statement Constructor constructor Constructor
+{
+    method void Python_Generate
+    {
+        string Code 'def __init__(self';
+        string Args (i Python_Args ', ');
+        if (string.gt Args '')
+        {
+            append Code ', ' Args;
+        }
+        append Code '):' [line, indent]
+            'super().__init__()' [line];
+        if [my Parent Generate_Constructor]
+        {
+            append Code [indent] 'self.propinit()' [line];
+        }
+        append Code [my Block Python_Statements];
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Code 'constructor(';
+        string Args (i Javascript_Args ', ');
+        if (string.gt Args '')
+        {
+            append Code Args;
+        }
+        append Code ') {' [line, indent]
+            'super();' [line];
+        if [my Parent Generate_Constructor]
+        {
+            append Code [indent] 'this.propinit();' [line];
+        }
+        append Code [my Block Javascript_Statements];
+        my= Javascript Code;
+    }
+}
+
+statement Debug debug Line;
+statement Debug_Stack debug.stack Line;
+statement Debug_Variable debug.variable Line
+{
+    method void Python_Generate
+    {
+        string Code "";
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            string Arg_Name [. Argument Python];
+            append Code 'try:' [line, indent]
+                    'print("' Arg_Name ':", ' Arg_Name ');' [line]
+                'except Exception:' [line, indent]
+                    'print("' Arg_Name ':", "<ERROR>")' [line];
+            my= Python Code;
+        }
+    }
+    method void Javascript_Generate
+    {
+        string Code "";
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            string Arg_Name [. Argument Javascript];
+            append Code 'try {' [line, indent]
+                    'console.log("' Arg_Name ':", ' Arg_Name ');' [line]
+                '}' [line]
+                'catch {' [line, indent]
+                    'console.log("' Arg_Name ':", "<ERROR>");' [line]
+                '}' [line];
+            my= Javascript Code;
+        }
+    }
+}
+
+statement Dictionary dict Scoped
+{
+    argument Variable;
+    method void Python_Generate
+    {
+        string Variable_Code [my Variable Python];
+        string Value_Code "";
+        string Between '';
+        entity Argument;
+        foreach [my Listargs] Argument
+        {
+            append Value_Code Between [. Argument Python];
+            = Between ', ';
+        }
+        string Code Variable_Code ' = {' Value_Code '}' [line];
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Variable_Code [my Variable Javascript];
+        string Value_Code "";
+        string Between '';
+        entity Argument;
+        foreach [my Listargs] Argument
+        {
+            append Value_Code Between [. Argument Javascript];
+            = Between ', ';
+        }
+        string Code 'var ' Variable_Code '= {' Value_Code '};' [line];
+        my= Javascript Code;
+    }
+}
+
+statement Dictionary_Assign dict.= Scoped
+{
+    argument Variable;
+    argument Key;
+    argument Value;
+    python [my Variable Python] '[' [my Key Python] '] = ' [my Value Python] ';' [line];
+    javascript [my Variable Javascript] '[' [my Key Javascript] '] = ' [my Value Javascript] ';' [line];
+}
+
+statement Else else If
+{
+    python 'else' (i Python_Block);
+    javascript 'else' (i Javascript_Block);
+}
+statement Else_If else.if If
+{
+    argument Condition;
+    python 'elif ' [my Condition Python] (i Python_Block);
+    javascript 'else if (' [my Condition Javascript] ')' (i Javascript_Block);
+}
+statement Entity entity Declare
+{
+    argument Variable;
+    optional Value;
+}
+statement Error error Append_Args
+{
+    python 'raise Exception(' (i Python_String_Args ' + ') ')' [line];
+    javascript 'throw ' (i Javascript_Args ' + ') ';' [line];
+}
+
+statement File_Readall file.readall Line
+{
+    argument Variable;
+    argument File_Name;
+    python 
+        '_FH = open(' [my File_Name Python] ', "r")' [line]
+        [my Variable Python] ' = _FH.read()' [line]
+        '_FH.close()' [line];
+
+    method void Javascript_Generate
+    {
+        string Varname [my Variable Javascript];
+        string File_Name [my File_Name Javascript];
+        string Code Varname ' = gal_file_reader.readFileSync(' File_Name ",'utf8');" [line];
+        my= Javascript Code;
+    }
+
+}
+
+statement File_Dump file.dump Line
+{
+    argument File_Text;
+    argument File_Name;
+    python 
+        '_FH = open(' [my File_Name Python] ', "w")' [line]
+        '_FH.write(' [my File_Text Python] ')' [line]
+        '_FH.close()' [line];
+    javascript
+        'gal_file_reader.writeFileSync(' [my File_Name Javascript] ', ' [my File_Text Javascript] ');' [line];
+}
+
+statement Flag flag Declare
+{
+    argument Variable;
+    optional Value;
+}
+
+statement Foreach list.foreach Scoped
+{
+    argument List;
+    argument Variable;
+    python 'for ' [my Variable Python] ' in ' [my List Python] (i Python_Block);
+    javascript 'for (' [my Variable Javascript] ' of ' [my List Javascript] ')' (i Javascript_Block);
+}
+
+statement Forgive forgive Scoped
+{
+    python 'try' (i Python_Block) 'except Exception:' [line, indent] 'pass' [line];
+    javascript 'try' (i Javascript_Block) 'catch { } ' [line];
+}
+
+statement Forward forward Line
+{
+    argument Name;
+    python '# forward ' [my Name Python] [line];
+    javascript '// forward ' [my Name Javascript] [line];
+}
+
+statement For_Range for.range For
+{
+    argument Variable;
+    argument Start_Index;
+    argument End_Index;
+
+    method void Python_Generate
+    {
+        if (not (defined [my Variable Python]))
+        {
+            error (i Failure_Message 'Variable Python not defined');
+        }
+        if (not (defined [my Start_Index Python]))
+        {
+            error (i Failure_Message 'Start Index Python not defined');
+        }
+        if (not (defined [my End_Index Python]))
+        {
+            error (i Failure_Message 'End Index Python not defined');
+        }
+        string Code 'for ' [my Variable Python] ' in range(' [my Start_Index Python] ', ' [my End_Index Python] '+1)'
+            (i Python_Block);
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        if (not (defined [my Variable Javascript]))
+        {
+            error (i Failure_Message 'Variable Javascript not defined');
+        }
+        if (not (defined [my Start_Index Javascript]))
+        {
+            error (i Failure_Message 'Start Index Javascript not defined');
+        }
+        if (not (defined [my End_Index Javascript]))
+        {
+            error (i Failure_Message 'End Index Javascript not defined');
+        }
+        string Code 'for (' 
+            [my Variable Javascript] '=' [my Start_Index Javascript] '; ' 
+            [my Variable Javascript] '<=' [my End_Index Javascript] '; '
+            [my Variable Javascript] '++)'
+            (i Javascript_Block);
+        my= Javascript Code;
+    }
+}
+
+statement Increment increment
+{
+    argument Numeric;
+    python [my Numeric Python] ' += 1' [line];
+    javascript [my Numeric Javascript] '++;' [line];
+}
+statement If if If
+{
+    argument Condition;
+    python 'if ' [my Condition Python] (i Python_Block);
+    javascript 'if (' [my Condition Javascript] ')' (i Javascript_Block);
+}
+
+statement Iterate iterate Scoped
+{
+    argument Dictionary;
+    argument Key_Variable;
+    argument Value_Variable;
+    python 'for ' [my Key_Variable Python] ', ' [my Value_Variable Python] ' in ' [my Dictionary Python] (i Python_Block);
+    javascript 'for ([' [my Key_Variable Javascript] ', ' [my Value_Variable Javascript] '] of Object.entries(' [my Dictionary Javascript] '))' (i Javascript_Block);
+}
+
+statement Integer integer Declare
+{
+    argument Variable;
+    optional Value;
+}
+
+statement Know know Line;

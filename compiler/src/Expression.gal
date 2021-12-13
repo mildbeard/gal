@@ -1,0 +1,433 @@
+class Operation [is Named_Element]
+{
+    method integer Gal_Add_Token [entity Token]
+    {
+        returnif (isa Token Start_Token) 1;
+        if (isa Token Token_Operation_End)
+        {
+            push [my Elements] Token;
+            my= End_Position [. Token End_Position];
+            return -1;
+        }
+        if (isa Token Token_Comma)
+        {
+            return -1;
+        }
+        if (isa Token End_Token)
+        {
+            my= Error 'Expected end-operation token';
+            return -999;
+        }
+        todo 'handle comma here';
+        returnif (isa Token Start_Token) 1;
+        push [my Elements] Token;
+        if (defined [my Verb])
+        {
+            push [my Arguments] Token;
+            push [my Listargs] Token;
+        }
+        else
+        {
+            my= Verb [. Token Input];
+            .= Token Is_Verb [true];
+        }
+        my= End_Position [. Token End_Position];
+        return 0;
+    }
+    method void Gal_Generate
+    {
+        string Gal_Code '(' [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Gal];
+        }
+        append Gal_Code ')';
+        my= Gal Gal_Code;
+    }
+    method void Debug_Generate
+    {
+        string Gal_Code '(' [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Gal];
+        }
+        append Gal_Code ')';
+        my= Debug Gal_Code;
+    }
+    method void Fallback_Generate
+    {
+        string Gal_Code '(' [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Fallback];
+        }
+        append Gal_Code ')';
+        my= Fallback Gal_Code;
+    }
+}
+
+class Syntax [is Named_Element]
+{
+    property flag Chain_Backward [false];
+    property flag Chain_Forward [false];
+    method integer Gal_Add_Token [entity Token]
+    {
+        returnif (isa Token Start_Token) 1;
+        if (isa Token Token_Syntax_End)
+        {
+            push [my Elements] Token;
+            my= End_Position [. Token End_Position];
+            return -1;
+        }
+        if (isa Token Token_Comma)
+        {
+            return -1;
+        }
+        if (isa Token End_Token)
+        {
+            my= Error 'Expected syntax end token';
+            return -999;
+        }
+        todo 'handle comma here';
+        returnif (isa Token Start_Token) 1;
+        push [my Elements] Token;
+        if (defined [my Verb])
+        {
+            push [my Arguments] Token;
+            push [my Listargs] Token;
+        }
+        else
+        {
+            my= Verb [. Token Input];
+            .= Token Is_Verb [true];
+        }
+        my= End_Position [. Token End_Position];
+        return 0;
+    }
+    method void Gal_Generate
+    {
+        comment writeline 'Syntax Gal_Generate ' (i To_String);
+        string First_Char '[';
+        string Last_Char ']';
+        if [my Chain_Backward] 
+        {
+            = First_Char '';
+        }
+        if [my Chain_Forward]
+        {
+            = Last_Char ',';
+        }
+        = First_Char '[';
+        = Last_Char ']';
+        string Gal_Code First_Char [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Gal];
+        }
+        append Gal_Code Last_Char;
+        my= Gal Gal_Code;
+    }
+    method void Debug_Generate
+    {
+        string First_Char '[';
+        string Last_Char ']';
+        if [my Chain_Backward]
+        {
+            = First_Char '';
+        }
+        if [my Chain_Forward]
+        {
+            = Last_Char ',';
+        }
+        = First_Char '[';
+        = Last_Char ']';
+        string Gal_Code First_Char [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Gal];
+        }
+        append Gal_Code Last_Char;
+        my= Debug Gal_Code;
+    }
+    method void Fallback_Generate
+    {
+        comment writeline 'Syntax Fallback_Generate ' (i To_String);
+        string First_Char '[';
+        string Last_Char ']';
+        if [my Chain_Backward]
+        {
+            = First_Char '';
+        }
+        if [my Chain_Forward]
+        {
+            = Last_Char ',';
+        }
+        = First_Char '[';
+        = Last_Char ']';
+        string Gal_Code First_Char [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Fallback];
+        }
+        append Gal_Code Last_Char;
+        my= Fallback Gal_Code;
+    }
+}
+
+class Keyvalue [is Named_Element]
+{
+    method integer Gal_Add_Token [entity Token]
+    {
+        returnif (isa Token Start_Token) 1;
+        if (isa Token Token_Keyvalue_End)
+        {
+            push [my Elements] Token;
+            my= End_Position [. Token End_Position];
+            return -1;
+        }
+        if (isa Token End_Token)
+        {
+            todo 'log error here';
+            return -999;
+        }
+        push [my Elements] Token;
+        push [my Arguments] Token;
+        push [my Listargs] Token;
+        my= End_Position [. Token End_Position];
+        return 0;
+    }
+    method void Gal_Generate
+    {
+        string Gal_Code '<';
+        string Between '';
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code Between [. Argument Gal];
+            = Between ' ';
+        }
+        append Gal_Code '>';
+        my= Gal Gal_Code;
+    }
+    method void Debug_Generate
+    {
+        string Gal_Code '<';
+        string Between '';
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code Between [. Argument Gal];
+            = Between ' ';
+        }
+        append Gal_Code '>';
+        my= Debug Gal_Code;
+    }
+    method void Fallback_Generate
+    {
+        string Gal_Code '<';
+        string Between '';
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code Between [. Argument Fallback];
+            = Between ' ';
+        }
+        append Gal_Code '>';
+        my= Fallback Gal_Code;
+    }
+}
+
+class Repeating_Operation [is Operation]
+{
+    method void Mumps_Generate
+    {
+        string Between '';
+        string Code '';
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Code Between (. Argument Mumps_Atom);
+            = Between [class.property Mumps_Operator];
+        }
+        my= M_Expr Code;
+    }
+    method void Javascript_Generate
+    {
+        string Between '';
+        string Operation ' ' [class.property Js_Operator] ' ';
+        string Code '';
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Code Between (. Argument Javascript_Atom [class.property Js_Precedence]);
+            = Between Operation;
+        }
+        my= Javascript Code;
+    }
+    method void Python_Generate
+    {
+        string Between '';
+        string Operation ' ' [class.property Py_Operator] ' ';
+        string Code '';
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Code Between (. Argument Python_Atom [class.property Py_Precedence]);
+            = Between Operation;
+        }
+        my= Python Code;
+    }
+}
+
+class Binary_Operation [is Operation]
+{
+    method void Mumps_Generate
+    {
+        entity First [node [my Arguments] 0];
+        entity Second [node [my Arguments] 1];
+        string First_M (. First M_Expression);
+        string Second_M (. Second M_Atom);
+        string Code First_M [class.property Mumps_Operator] Second_M;
+        my= M_Expr Code;
+    }
+    method void Javascript_Generate
+    {
+        entity First [node [my Arguments] 0];
+        entity Second [node [my Arguments] 1];
+        integer Precedence [class.property Js_Precedence];
+        string First_Js (. First Javascript_Atom Precedence);
+        string Second_Js (. Second Javascript_Atom Precedence);
+        string Code First_Js ' ' [class.property Js_Operator] ' ' Second_Js;
+        my= Javascript Code;
+    }
+    method void Python_Generate
+    {
+        entity First [node [my Arguments] 0];
+        entity Second [node [my Arguments] 1];
+        integer Precedence [class.property Py_Precedence];
+        string First_Py (. First Python_Atom Precedence);
+        string Second_Py (. Second Python_Atom Precedence);
+        string Code First_Py ' ' [class.property Py_Operator] ' ' Second_Py;
+        my= Python Code;
+    }
+}
+class String_Binary_Operation [is Operation]
+{
+    method void Mumps_Generate
+    {
+        entity First [node [my Arguments] 0];
+        entity Second [node [my Arguments] 1];
+        string First_M (. First M_Expression);
+        string Second_M (. Second M_Atom);
+        string Code First_M [class.property Mumps_Operator] Second_M;
+        my= M_Expr Code;
+    }
+    method void Javascript_Generate
+    {
+        entity First [node [my Arguments] 0];
+        entity Second [node [my Arguments] 1];
+        integer Precedence [class.property Js_Precedence];
+        string First_Js (. First Javascript_Atom Precedence);
+        string Second_Js (. Second Javascript_Atom Precedence);
+        string Code First_Js ' ' [class.property Js_Operator] ' ' Second_Js;
+        my= Javascript Code;
+    }
+    method void Python_Generate
+    {
+        entity First [node [my Arguments] 0];
+        entity Second [node [my Arguments] 1];
+        integer Precedence [class.property Py_Precedence];
+        string First_Py (. First Python_Atom Precedence);
+        string Second_Py (. Second Python_Atom Precedence);
+        if (not (isa First Quote)) {
+            = First_Py (append 'str(' First_Py ')');
+        }
+        if (not (isa Second Quote)) {
+            = Second_Py (append 'str(' Second_Py ')');
+        }
+        string Code First_Py ' ' [class.property Py_Operator] ' ' Second_Py;
+        my= Python Code;
+    }
+}
+class Invocation_Operation [is Operation];
+class Unary_Operation [is Operation]
+{
+    argument First;
+    method void Mumps_Generate
+    {
+        string First_M (. [my First] M_Atom);
+        string Code [class.property Mumps_Operator] First_M;
+        my= M_Atom Code;
+    }
+    method void Javascript_Generate
+    {
+        integer Precedence [class.property Js_Precedence];
+        string First_Js (. [my First] Javascript_Atom Precedence);
+        string Code [class.property Js_Operator] '(' First_Js ')';
+        my= Javascript Code;
+    }
+    method void Python_Generate
+    {
+        integer Precedence [class.property Py_Precedence];
+        string First_Py (. [my First] Python_Atom Precedence);
+        string Code [class.property Py_Operator] ' ' First_Py;
+        my= Python Code;
+    }
+}
+class String_Unary_Operation [is Unary_Operation]
+{
+    argument First;
+    method void Python_Generate
+    {
+        integer Precedence [class.property Py_Precedence];
+        string First_Py (. [my First] Python_Atom Precedence);
+        if (not (isa [my First] Quote)) 
+        {
+            = First_Py (append 'str(' First_Py ')');
+        }
+        string Code [class.property Py_Operator] ' ' First_Py;
+        my= Python Code;
+    }
+}
+class Append_Args_Operation [is Repeating_Operation]
+{
+    method void Attributes
+    {
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            .= Argument Usge 'string';
+        }
+    }
+}
+
+class Noun_Syntax [is Syntax];
+class Declare_Syntax [is Syntax]
+{
+    method void Python_Generate
+    {
+        string Code [my Variable Python];
+        if (defined [my Value])
+        {
+            append Code ' = ' [my Value Python];
+        }
+        my= Python Code;
+    }
+    
+    method void Javascript_Generate
+    {
+        string Code [my Variable Javascript];
+        if (defined [my Value])
+        {
+            append Code ' = ' [my Value Javascript];
+        }
+        my= Javascript Code;
+    }
+}
+

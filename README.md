@@ -1,43 +1,56 @@
 # gal
 
-gal is short for general abstract language. It consists of a language compiler capable of translating gal programs into a variety of different target output languages. 
+gal is short for general abstract language. It consists of a language compiler capable of translating gal programs into a variety of different target output languages. The goal is to create a universal programming language that can be compiled into any language context. 
 
-This is gal version 0.8.9, intended to be the last version that still requires the bootstrap compiler in order to function. 
+This is gal version 1.0.0 alpha, intended to be the first alpha release of the 1.0 compiler. 
 
-The first release version will be gal 0.9.0 when the compiler can fully compile itself into multiple working languages. 
-
-Version 1.0 will be when the gal compiler can cross compile itself through three successive target languages without introducing any differences. 
+As of version 1.0 alpha, the gal compiler is building itself into Raku, Python and Javascript. 
 
 # goal
 
-This will be openly released under the MIT license in hopes that people will create new language generators in gal, to translate gal programs into many new target languages. 
+This will be openly released under the MIT license in hopes that people will create new language generators in gal, to translate gal programs into many new target languages. New parsers that translate many formats into gal. New atomic and derivative gal language elements. 
 
 # installation
 
-First obtain the gal source code and this readme file.
+The gal compiler is written in gal. It is first compiled into Raku using the gal bootstrap compiler, which is also written in Raku. This prototype compiler is headed to retirement soon. It compiles the gal compiler into Raku.
 
-The setup script is intended to be run from inside the gal directory.
+Next the raku gal compiler compiles itself into Javascript and Python. 
 
-    $ cd your_local_path/gal
+The process is then repeated using the Python gal compiler and the Javascript gal compiler. All three must produce exactly the same output. 
 
-Take a look at the setup script so you know what you're executing. 
+The script build.sh is executed inside the compiler directory to run the build process. 
 
 Note that the prototype gal compiler is written in Raku (formerly Perl 6), so that has to be installed. This is a temporary dependency slated for removal in version 1.0 - from then on, the gal compiler will be language agnostic. 
 
     $ sudo apt install -y rakudo
-    $ alias gal='rakudo "your_local_path/gal/bootstrap_compiler.raku"'
+    $ alias gal_bootstrap='rakudo "~/path_to_here/gal/bootstrap_compiler.raku"'
 
-Add that alias to a login script if you plan to continue running gal.
+To test that it worked, try running the gal bootstrap compiler with no arguments from any directory.
 
-To test that it worked, try running the gal compiler with no arguments from any directory.
-
-    $ gal
+    $ gal_bootstrap
     Usage:
-      gal [-x|--xecute] [-r|--raku] [-p|--python] [-j|--javascript] [-m|--mumps] [-c|--cee] [-g|--gal] [-v|--verbose] <file> <target>
+      gal_bootstrap [-x|--xecute] [-r|--raku] [-p|--python] [-j|--javascript] [-m|--mumps] [-c|--cee] [-g|--gal] [-v|--verbose] <file> <target>
+
+# build.sh
+
+This script is executed every time the source code of the gal compiler is updated or modified. 
+
+	$ cd compiler
+	$ . build.sh
+
+The compiler is built in three stages. In each stage, the compiler runs multiple files in parallel and only compiles files that are out of date. 
+
+First, the bootstrap compiler compiles gal into raku. It starts by translating the gal compiler into a simplified atomic 'fallback' dialect. It translates the 'fallback' gal into raku. This prototype compiler has high overhead and isn't very scaleable, so multiple smaller files are run in parallel. 
+
+Second, the raku gal compiler compiles itself into a similar simplified 'atomic' dialect. This allows higher-level language elements to be compiled into atomic gal. The raku gal compiler then generates this atomic gal into Python and Javascript. 
+
+Third, both the Python gal compiler and the Javascript gal compiler repeat the same compilation that was done in step 2 by the raku gal compiler. The three compilers must produce identical atomic and compiled code. 
+
+    $ alias gal='python3 "~/path_to/gal_compiler.py"'
+
+In the examples that follow, we assume you've created an alias similar to the above. Adjust to your preferred method. 
 
 # hello world
-
-NOTE: The following examples still use the bootstrap compiler. The gal compiler will be used here soon.
 
 One way to try out gal is to compile the Hello World application. It is included in the git repository, but it's not hard to type the code.
 
@@ -48,31 +61,15 @@ One way to try out gal is to compile the Hello World application. It is included
         writeline "Hello World";
     }
 
-Since we know you definitely have Raku installed, let's compile and execute the program into Raku. 
+We assume you have Python3 installed. 
 
-    $ gal -r Hello.gal Hello.raku
-
-    $ cat Hello.raku
-    sub MAIN() {
-        say "Hello World";
-    }
-
-    $ rakudo Hello.raku
-    Hello World
-
-The gal compiler can also produce Python 3. You need to have Python installed. To find out, try the following command.
-
-    $ python --version
-
-Let's try hello world in Python.
-
-    $ gal -p Hello.gal Hello.py
+    $ gal python Hello.gal Hello.py
 
     $ cat Hello.py
     if __name__ == '__main__':
         print("Hello World")
 
-    $ python Hello.py
+    $ python3 Hello.py
     Hello World
 
 You can also produce Javascript. To run it on the server side, you could use Node.js. 
@@ -81,24 +78,12 @@ You can also produce Javascript. To run it on the server side, you could use Nod
 
 Compiling and testing in Javascript is then straightforward.
 
-    $ gal -j Hello.gal Hello.js
+    $ gal javascript Hello.gal Hello.js
 
     $ cat Hello.js
     console.log("Hello World");
 
     $ node Hello.js
-    Hello World
-
-This project originally started in Mumps, and you can run programs in Yottadb if you have it installed.
-
-    $ gal -m Hello.gal ~/.yottadb/r/Hello.m
-
-    $ cat ~/.yottadb/r/Hello.m
-    main ; main entry point
-        write "Hello World",!
-        quit
-
-    $ yottadb -run Hello
     Hello World
 
 # samples
@@ -116,93 +101,37 @@ You can find other gal programs in the samples directory. The compiler is still 
 	    }
 	}
 
-	$ gal -r -x Todo.gal Todo.raku
-	- Breakfast
-	- Lunch
-	- Dinner
-	- Bedtime
-
-	$ cat Todo.raku
-	sub MAIN() {
-	    my @Todo = "Breakfast", "Lunch", "Dinner", "Bedtime";
-	    my Str $Item;
-	    for @Todo -> $Item {
-	        say "- $Item";
-	    }
-	}
-	
-
 # project status
 
-This is gal version 0.8.0
-
-It contains a bootstrap gal compiler written in Raku, that can translate a gal program to Raku or to simplified gal.
-
-It contains a gal compiler written in gal, in the compiler directory. This compiler mostly works but a lot of language elements still need to be implemented. 
-
-A variety of gal dialects exist. There is simple gal containing the basic atomic language elements that must be implemented by a language generator. There is fallback gal, in which higher-level language elements are themselves implemented in simple gal. There is debug gal, which transforms a simple gal program into a debug compiled version. 
-
-Version 0.8 introduces a gal debugger written in gal. This is written but not debugged yet. It contains the debug gal dialect and the Context class that serves as both a process stack frame and a debug console. 
-
-In version 0.9 the gal compiler will be able to compile itself correctly. This consists of building out atomic language elements in Javascript and Python. The bootstrap compiler already generates Raku output. 
-
-In version 1.0 the gal compiler will be able to compile itself into all dialects of gal, running consisently in Raku, Python and Javascript. 
+gal is under active development, and is not yet ready for production use. 
 
 # language
 
-The most important thing about the gal language syntax is that it is designed to be translated into any programming language. For that reason, the syntax itself has been greatly simplified without losing expressiveness. The simple syntax makes translation easy. 
+The most important thing about the gal language syntax is that it is designed to be translated into any programming language. For that reason, the syntax itself has been kept as simple as possible without losing expressiveness. The simple syntax makes translation easy. 
 
-Though simple, the gal language syntax is highly expressive and easily extended. To create a new output language generator, just add a generator method to each atomic language element. 
+Though simple, the gal language syntax is highly expressive and easily extended. The parser generator uses a generic class structure that requires inheritance but doesn't rely on language-specific factors. 
 
 ## special characters
 
 Everything is separated by whitespace. Only a few punctuation characters have meaning. For that reason, language element verbs can contain punctuation characters. The first word is a verb, which defines the meaning of all the remaining arguments. 
 
-    method string Indent [string Input]
+    method void Read [string File_Name]
     {
-        list Lines (split Input [line]);
-        string Indented '';
-        entity Line;
-        foreach Lines Line
-        {
-            append Indented [indent] Line [line];
-        }
-        return Indented;
+        my= File_Name File_Name;
+        string File_Text;
+        file.readall File_Text File_Name;
+        my= File_Text File_Text;
     }
-
-The above method translates as follows into Raku:
-
-method Indent(Str $Input)
-{
-    my @Lines = split("\n", $Input);
-    my Str $Indented = "";
-    my $Line;
-    for @Lines -> $Line
-    {
-        $Indented ~= "    $Line\n";
-    }
-    return $Indented;
-}
-
-And in Python:
-
-    def Indent(self, Input):
-        Lines = Input.split("\n")
-        Indented = ''
-        Line = None
-        for Line in Lines:
-            Indented +=  + Line + "\n"
-        return Indented
 
 The colon and semicolon are used because they are easy to type. 
 
-Other meaningful characters include three kinds of quote: 'apostrophes', "quotes" and \`backquotes\`. 
+Other meaningful characters include three kinds of quote: 'apostrophes', "quotes" and \`backquotes\`. They all work the same. Strings are very simple, with no embedding or other fancy syntax rules.
 
 Four special pairs of surrounding punctuations include:
 
-- parentheses around operations (+ X Y)
-- brackets around blocks { += Y 10; } 
-- square brackets around syntax constructs \[is :Parent_Class\]
+- parentheses around operations '(+ X Y)',
+- brackets around blocks '{ = Y 10; }', 
+- square brackets around syntax constructs '\[is :Parent_Class\]' 
 - and angle brackets around keyvalue pairs &lt;Key "Value"&gt; 
  
 The comma is sometimes used to indicate successive syntax elements, especially in formal argument list declarations. So this statement:
@@ -289,7 +218,7 @@ For that reason, the following case convention is used within the gal compiler c
 
 "Extrinsic" words are title case or Pascal case with underscores between multiple words. This applies to Variable_Names, Method_Names, Class_Names and so on. 
 
-The gal compiler is case agnostic. If you use the variable names X or x, it will consider them to be the same. You can expect the output code generator for your target language to apply a case convention that makes sense for that target language. 
+The gal compiler is case agnostic. If you use the variable names X or x, it may or may not consider them to be the same. You can expect the output code generator for your target language to apply a case convention that makes sense for that target language. Case consistency is recommended. 
 
 ## automated testing
 
@@ -411,57 +340,9 @@ This list of language elements is very incomplete. Although gal has a very simpl
     raise "No Such Employee";
 	raiseif (less X 0) "Negative Number";
 
-### compiler statements
-    language gal
-    {
-        statement.line your.statement.here
-        {
-            todo;
-        }
-        statement.block unless
-        {
-            argument Condition;
-            gal 'if (not ' [i Condition] ')' [i Block];
-            raku 'unless ' [i Condition, i Block];
-        }
-    }
-    parser Mumps
-    {
-        element Commands
-        {
-            required Command;
-            optional.repeating Tail
-            {
-                required Cs;
-                required Command;
-                mumps ' ' [i Command];
-                gal ' ' [i Command];
-            }
-            mumps [i Command] [optional.repeating Tail];
-            gal [i Command] [optional.repeating Tail];
-        }
-    }
-    element.optional
-    element.required.repeating
-    element.optional.repeating
-    element.required
-    character
-    optional
-    optional.repeating
-    required
-    required.repeating
-    okthen;
-    forbidden
-    either
-    choice
+## operations
+Operations are part of the gal language, and have their own verb keyword. Operations return a value at runtime. 
 
-## intrinsic functions
-Intrinsic functions are part of the gal language, and have their own lowercase keyword. Extrinsic functions are written in gal, and their names begin with uppercase. 
-
-### uppercase function names are value-returning method calls.
-    (Method_Name Target Arg1 Arg2)
-
-### operations
 	(and X Y Z)
 		(& X Y Z)
 	(or X Y Z)
@@ -485,7 +366,7 @@ Intrinsic functions are part of the gal language, and have their own lowercase k
 	(divide X Y)
 		(/ X Y)
 
-### string functions
+### string operations
     (string V1)
     (string.append ...)
         (append ...)
@@ -542,9 +423,10 @@ Intrinsic functions are part of the gal language, and have their own lowercase k
 
 Syntax constructs in gal are surrounded by square brackets.
 
-	[await (http.fetch '/marco')]
-	[await (sql.query 'select * from table')]
-	[property self Property]
+	[self]
+	[true]
+	[false]
+	[my Property]
 		[. self Property]
 	[entity Element]
 	[integer Iterations]
@@ -553,7 +435,7 @@ Syntax constructs in gal are surrounded by square brackets.
 	[flag Special_Mode]
 	[variant Input]
 	[is :Statement]
-	[classname self]	
+	[classname [self]]
 
 a method argument list is technically a series of syntax constructs.
 
@@ -562,3 +444,4 @@ a method argument list is technically a series of syntax constructs.
 It's most common to use commas to consolidate multiple syntax constructs.
 
 	method void Add_Item [string Name, integer Number] { todo; }
+

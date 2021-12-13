@@ -1,0 +1,6 @@
+class Foo
+{
+    property entity Bar;
+    property number Hello 22;
+}
+

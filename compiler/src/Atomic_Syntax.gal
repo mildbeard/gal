@@ -1,0 +1,262 @@
+syntax Is is
+{
+    method void Attributes
+    {
+        my= Superclass (list.shift [my Listargs]);
+        comment writeline 'IS ToString: ' (i To_String);
+        comment writeline 'Parent ToString: ' (. [my Parent] To_String);
+        .= [my Parent] Base_Class [true];
+    }
+    argument Superclass;
+    python '(' [my Superclass Python] ')';
+    javascript ' extends ' [my Superclass Javascript];
+}
+syntax Dot .
+{
+    python (i Python_Full_Args '.');
+    javascript (i Javascript_Full_Args '.');
+}
+
+syntax Key key
+{
+    argument Dictionary;
+    argument Key;
+    python [my Dictionary Python] '[' [my Key Python] ']';
+    javascript [my Dictionary Javascript] '[' [my Key Javascript] ']';
+}
+
+syntax Node node
+{
+    argument List;
+    argument Node;
+    python [my List Python] '[' [my Node Python] ']';
+    javascript [my List Javascript] '[' [my Node Javascript] ']';
+}
+
+syntax Line line
+{
+    optional Count;
+    method void Python_Generate
+    {
+        string Code "'\n'";
+        if (defined [my Count])
+        {
+            append Code '*' [my Count Python];
+        }
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Code '"\n"';
+        if (defined [my Count])
+        {
+            append Code '.repeat(' [my Count Javascript] ')';
+        }
+        my= Javascript Code;
+    }
+}
+
+syntax Tab tab
+{
+    optional Count;
+    method void Python_Generate
+    {
+        string Code '"\t"';
+        if (defined [my Count])
+        {
+            append Code '*' [my Count Python];
+        }
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Code '"\t"';
+        if (defined [my Count])
+        {
+            append Code '.repeat(' [my Count Javascript] ')';
+        }
+        my= Javascript Code;
+    }
+}
+
+syntax Backslash backslash
+{
+    optional Count;
+    method void Python_Generate
+    {
+        string Code "gal.backslash(";
+        if (defined [my Count])
+        {
+            append Code [my Count Python];
+        }
+        append Code ')';
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Code "gal.backslash(";
+        if (defined [my Count])
+        {
+            append Code [my Count Javascript];
+        }
+        append Code ')';
+        my= Javascript Code;
+    }
+}
+
+syntax Indent indent
+{
+    optional Count;
+    method void Python_Generate
+    {
+        string Code '"    "';
+        if (defined [my Count])
+        {
+            append Code '*' [my Count Python];
+        }
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Code '"    "';
+        if (defined [my Count])
+        {
+            append Code '.repeat(' [my Count Javascript] ')';
+        }
+        my= Javascript Code;
+    }
+}
+syntax String string Declare
+{
+    argument Variable;
+    optional Value;
+}
+syntax Number number Declare
+{
+    argument Variable;
+    optional Value;
+}
+syntax Integer integer Declare
+{
+    argument Variable;
+    optional Value;
+}
+syntax Entity entity Declare
+{
+    argument Variable;
+    optional Value;
+}
+syntax Variant variant Declare
+{
+    argument Variable;
+    optional Value;
+}
+syntax Flag flag Declare
+{
+    argument Variable;
+    optional Value;
+}
+syntax Dictionary dictionary Declare
+{
+    argument Variable;
+    optional Value;
+}
+
+syntax Class_Name class.name
+{
+    optional Entity;
+    method void Python_Generate
+    {
+        string Entity_Code 'self';
+        if (defined [my Entity])
+        {
+            = Entity_Code (. [my Entity] Python_Atom 99);
+        }
+        string Code Entity_Code '.__class__.__name__';
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Entity_Code 'this';
+        if (defined [my Entity])
+        {
+            = Entity_Code (. [my Entity] Javascript_Atom 99);
+        }
+        string Code Entity_Code '.constructor.name';
+        my= Javascript Code;
+    }
+}
+
+syntax Class_Property class.property
+{
+    argument First;
+    optional Second;
+    method void Python_Generate
+    {
+        string Class_Name;
+        string Property_Name;
+        if (defined [my Second])
+        {
+            = Class_Name [my First Python];
+            = Property_Name [my Second Python];
+        }
+        else
+        {
+            comment writeline '************ debug this here *******************';
+            if (not (defined [my Method_Context]))
+            {
+                error 'No Method Context in class property ' [my First Python];
+            }
+            entity Context [my Method_Context];
+            comment dv '$Context';
+            = Class_Name [. Context Python_Class];
+            comment dv '$Class_Name';
+            = Property_Name [my First Python];
+        }
+        string Code Class_Name '.' Property_Name;
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Class_Name;
+        string Property_Name;
+        if (defined [my Second])
+        {
+            = Class_Name [my First Javascript];
+            = Property_Name [my Second Javascript];
+        }
+        else
+        {
+            = Class_Name 'this.constructor';
+            if (and (defined [my Method_Context])
+                    (isa [my Method_Context] :Class_Method_Statement))
+            {
+                = Class_Name 'this';
+            }
+            = Property_Name [my First Javascript];
+        }
+        string Code Class_Name '.' Property_Name;
+        my= Javascript Code;
+    }
+}
+
+syntax True true Noun
+{
+    python 'True';
+    javascript 'true';
+    mumps '1';
+}
+
+syntax False false Noun
+{
+    python 'False';
+    javascript 'false';
+    mumps '0';
+}
+
+syntax Null null Noun
+{
+    python 'None';
+    javascript 'undefined';
+    mumps '""';
+}

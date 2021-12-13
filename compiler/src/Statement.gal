@@ -1,0 +1,773 @@
+comment 'Statement.gal';
+
+forward Comment_Statement;
+
+class Statement [is Named_Element]
+{
+    property flag In_Block [false];
+    property entity Block;
+    method string String_Info
+    {
+        string String '';
+        try
+        {
+            entity Argument;
+            foreach [my Arguments] Argument
+            {
+                string Arg_Str [class.name Argument];
+                append String ' ' Arg_Str;
+            }
+        }
+        catch
+        {
+            append String '<invalid Arguments>';
+        }
+        try
+        {
+            if (defined [my Block])
+            {
+                append String ' ' (. [my Block] To_String);
+            }
+        }
+        catch
+        {
+            append String '<invalid Block>';
+        }
+        append String '.';
+        return String;
+    }
+    method void Structure
+    {
+        returnif (not [my Re_Structure]);
+        my= Re_Structure [false];
+        comment writeline '     Element Structure ' [class.name];
+        i Base_Structure;
+        if (defined [my Block])
+        {
+            if (defined [my Class_Context])
+            {
+                .= [my Block] Class_Context [my Class_Context];
+            }
+            if (defined [my Method_Context])
+            {
+                .= [my Block] Method_Context [my Method_Context];
+            }
+            if (defined [my Variable_Context])
+            {
+                .= [my Block] Variable_Context [my Variable_Context];
+            }
+            . [my Block] Structure;
+        }
+        entity Element;
+        foreach [my Elements] Element
+        {
+            comment .= Element Parent [self];
+            if (and (defined [my Method_Context])
+                    (not (defined [. Element Method_Context])))
+            {
+                .= Element Method_Context [my Method_Context];
+            }
+            . Element Structure;
+        }
+    }
+    method void Base_Structure
+    {
+        entity Argument;
+        entity Previous;
+        foreach [my Arguments] Argument
+        {
+            if (and (isa Argument Syntax)
+               (and (defined Previous)
+                    (isa Previous Syntax)))
+            {
+                .= Previous Chain_Forward [true];
+                .= Argument Chain_Backward [true];
+            }
+            = Previous Argument;
+        }
+    }
+    method string Conditional_Debug
+    {
+        string Code '. :Debugger Conditional ' [my Start_Position] ' ' [my End_Position] ';' [line];
+        return Code;
+    }
+    method integer Gal_Add_Token [entity Token]
+    {
+        comment "Add token '" (. Token To_String) "' to statement '" (i To_String) "'";
+        if (or (isa Token Token_Semi) (isa Token Token_Block_End))
+        {
+            comment 'Statement ' (i To_String) ' appends ' (. Token To_String) ' statement terminator';
+            push [my Elements] Token;
+            my= End_Position [. Token End_Position];
+            return -1;
+        }
+        if (isa Token Token_Block_Start)
+        {
+            comment 'Statement ' (i To_String) ' appends ' (. Token To_String) ' block start';
+            push [my Elements] Token;
+            integer Here [. Token End_Position];
+            my= End_Position Here;
+            new [my Block] :Block;
+            .= [my Block] Start_Position Here;
+            .= [my Block] End_Position Here;
+            my= In_Block [true];
+            push [my Elements] [my Block];
+            return 0;
+        }
+        returnif (isa Token Start_Token) 1;
+        if (isa Token End_Token)
+        {
+            comment 'Statement ' (i To_String) ' appends ' (. Token To_String) ' error end token';
+            todo 'log error here';
+            return -999;
+        }
+        push [my Elements] Token;
+        if [my In_Block]
+        {
+            comment 'Statement ' (i To_String) ' appends ' (. Token To_String) ' in a block';
+            return 1;
+        }
+        else
+        {
+            comment 'Statement ' (i To_String) ' appends ' (. Token To_String) ' as argument';
+            push [my Arguments] Token;
+            push [my Listargs] Token;
+        }
+        my= End_Position [. Token End_Position];
+        return 0;
+    }
+    method void Gal_Add_Element [entity Child_Element]
+    {
+        comment writeline "Add element " (. Child_Element To_String) " to statement " (i To_String);
+        if [my In_Block]
+        {
+            . [my Block] Gal_Add_Element Child_Element;
+        }
+        else
+        {
+            push [my Elements] Child_Element;
+            push [my Arguments] Child_Element;
+            push [my Listargs] Child_Element;
+        }
+    }
+    method void Gal_Generate
+    {
+        string Gal_Code [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            if (not (defined [. Argument Gal]))
+            {
+                my= Error "Argument Error";
+                append Gal_Code "<Argument Error>";
+                writeline (. Argument To_String) ": Argument Error";
+            }
+            else
+            {
+                append Gal_Code ' ' [. Argument Gal];
+            }
+        }
+        if (defined [my Block])
+        {
+            . [my Block] Gal_Generate;
+            append Gal_Code [my Block Gal];
+        }
+        else
+        {
+            append Gal_Code ';' [line];
+        }
+        my= Gal Gal_Code;
+    }
+    method void Fallback_Generate
+    {
+        string Gal_Code [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Fallback];
+        }
+        if (defined [my Block])
+        {
+            . [my Block] Fallback_Generate;
+            append Gal_Code (i Fallback_Block);
+        }
+        else
+        {
+            append Gal_Code ';';
+        }
+        my= Fallback Gal_Code;
+    }
+    method void Debug_Generate
+    {
+        string Gal_Code [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Gal];
+        }
+        if (defined [my Block])
+        {
+            . [my Block] Debug_Generate;
+            append Gal_Code [my Block Gal];
+        }
+        else
+        {
+            append Gal_Code ';';
+        }
+        append Gal_Code (i Conditional_Debug);
+        my= Debug Gal_Code;
+    }
+}
+
+class Block [is Element]
+{
+    property list Statements;
+    property string Gal_Statements;
+    property string Fallback_Statements;
+    property string Python_Statements;
+    property string Javascript_Statements;
+    method string String_Info
+    {
+        string String [class.name] ': ';
+        try
+        {
+            append String [my Start_Position];
+        }
+        catch
+        {
+            append String '<Start?>';
+        }
+        try
+        {
+            append String '-' [my End_Position];
+        }
+        catch
+        {
+            append String '-<End?>';
+        }
+        append String ' {';
+        entity Statement;
+        foreach [my Statements] Statement
+        {
+            string Stmt_Str [class.name Statement];
+            append String ' ' Stmt_Str;
+        }
+        append String ' }';
+        try
+        {
+            if (defined [my Error])
+            {
+                append String ' ERROR <' [my Error] '>';
+            }
+        }
+        catch
+        {
+            append String ' ok';
+        }
+        return String;
+    }
+    method void Base_Structure
+    {
+        if (defined [my Method_Context])
+        {
+            comment writeline 'Block Method Context' ;
+        }
+        else
+        {
+            string Message '%% Block No Method Context in ';
+            if (defined [my Parent])
+            {
+                append Message (. [my Parent] To_String);
+            }
+            append Message ' %%';
+            comment writeline Message;
+        }
+        entity Statement;
+        foreach [my Statements] Statement
+        {
+            if (defined [my Class_Context])
+            {
+                comment writeline '    ' (. Statement To_String);
+                .= Statement Class_Context [my Class_Context];
+            }
+            if (defined [my Method_Context])
+            {
+                comment writeline '    ' (. Statement To_String);
+                .= Statement Method_Context [my Method_Context];
+            }
+            if (defined [my Variable_Context])
+            {
+                .= Statement Variable_Context [my Variable_Context];
+            }
+            . Statement Structure;
+            
+        }
+    }
+    method void Gal_Add_Element [entity Child_Element]
+    {
+        comment writeline 'block append element ' [class.name];
+        push [my Elements] Child_Element;
+        push [my Statements] Child_Element;
+    }
+    method void Gal_Generate
+    {
+        string Code [line] '{' [line];
+        string Block_Code '';
+        entity Statement;
+        foreach [my Statements] Statement
+        {
+            append Block_Code [. Statement Gal] [line];
+        }
+        = Block_Code (i Indent Block_Code);
+        my= Gal_Statements Block_Code;
+        append Code Block_Code '}' [line];
+        my= Gal Code;
+    }
+    method void Debug_Generate
+    {
+        string Code [line] '{' [line];
+        string Block_Code '';
+        entity Statement;
+        foreach [my Statements] Statement
+        {
+            append Block_Code [. Statement Gal] [line];
+        }
+        = Block_Code (i Indent Block_Code);
+        my= Gal_Statements Block_Code;
+        append Code Block_Code '}' [line];
+        my= Debug Code;
+    }
+    method void Fallback_Generate
+    {
+        string Code [line] '{' [line];
+        string Block_Code '';
+        entity Statement;
+        foreach [my Statements] Statement
+        {
+            todo 'Make this kludge unnecessary';
+            . Statement Fallback_Generate;
+            append Block_Code [. Statement Fallback] [line];
+        }
+        = Block_Code (i Indent Block_Code);
+        my= Fallback_Statements Block_Code;
+        append Code Block_Code '}' [line];
+        my= Fallback Code;
+    }
+    method void Python_Generate
+    {
+        flag Non_Comments [false];
+        string Stmt_Code '';
+        entity Statement;
+        foreach [my Statements] Statement
+        {
+            string Statement_Python [. Statement Python];
+            if (defined Statement_Python)
+            {
+                append Stmt_Code Statement_Python;
+            }
+            else
+            {
+                append Stmt_Code '# ERROR from ' (. Statement To_String);
+            }
+            if (not (isa Statement :Comment_Statement))
+            {
+                = Non_Comments [true];
+            }
+        }
+        if (not Non_Comments)
+        {
+            append Stmt_Code 'pass' [line];
+        }
+        = Stmt_Code (i Indent Stmt_Code);
+        my= Python_Statements Stmt_Code;
+        string Code ':' [line] Stmt_Code;
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Block_Code '';
+        entity Statement;
+        foreach [my Statements] Statement
+        {
+            string Statement_JS [. Statement Javascript];
+            if (defined Statement_JS)
+            {
+                append Block_Code Statement_JS;
+            }
+            else
+            {
+                append Block_Code '// ERROR from ' (. Statement To_String) [line];
+            }
+        }
+        comment writeline 'block: ' Block_Code;
+        = Block_Code (i Indent Block_Code);
+        comment writeline 'indented block: ' Block_Code;
+        my= Javascript_Statements Block_Code;
+        string Code [line] '{' [line] Block_Code '}' [line];
+        comment writeline 'code: ' Code;
+        my= Javascript Code;
+    }
+}
+
+class Line_Statement [is Statement];
+
+class Scoped_Statement [is Statement];
+
+class Declare_Statement [is Line_Statement]
+{
+    argument Variable;
+    optional Value;
+    method void Javascript_Generate
+    {
+        if (not (defined [my Variable Javascript]))
+        {
+            error (i Failure_Message 'Variable Javascript is undefined');
+        }
+        string Variable_Javascript [my Variable Javascript];
+        string Value_Javascript '';
+        if (defined [my Value])
+        {
+            = Value_Javascript (append ' = ' [my Value Javascript]);
+        }
+        string Code 'var ' Variable_Javascript Value_Javascript ';' [line];
+        my= Javascript Code;
+    }
+    method void Python_Generate
+    {
+        if (not (defined [my Variable Python]))
+        {
+            error (i Failure_Message 'Variable Python is undefined');
+        }
+        string Variable_Python [my Variable Python];
+        string Value_Python 'None';
+        if (defined [my Value])
+        {
+            if (not (defined [my Value Python]))
+            {
+                error (i Failure_Message 'Value Python is undefined');
+            }
+            = Value_Python [my Value Python];
+        }
+        string Code Variable_Python ' = ' Value_Python [line];
+        my= Python Code;
+    }
+}
+
+class Method_Statement [is Scoped_Statement]
+{
+    argument Return_Type;
+    argument Method_Name;
+    property string Python_Class 'cls';
+    property entity Method_Context;
+    property entity Variable_Context;
+    method void Attributes
+    {
+        my= Return_Type (shift [my Listargs]);
+        my= Method_Name (shift [my Listargs]);
+        my= Method_Context [self];
+        todo 'add this to the compiled method list of the class.';
+    }
+    method void Debug_Generate
+    {
+        string Gal_Code [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Gal];
+        }
+        if (defined [my Block])
+        {
+            . [my Block] Debug_Generate;
+            append Gal_Code [my Block Gal];
+        }
+        else
+        {
+            append Gal_Code ';';
+        }
+        my= Debug Gal_Code;
+    }
+}
+class Class_Method_Statement [is Method_Statement];
+class Property_Statement [is Line_Statement]
+{
+    method void Debug_Generate
+    {
+        string Gal_Code [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Gal];
+        }
+        if (defined [my Block])
+        {
+            . [my Block] Debug_Generate;
+            append Gal_Code [my Block Gal];
+        }
+        else
+        {
+            append Gal_Code ';';
+        }
+        my= Debug Gal_Code;
+    }
+}
+class Class_Property_Statement [is Line_Statement];
+class Constructor_Statement [is Method_Statement]
+{
+    method void Attributes
+    {
+    }
+    method void Debug_Generate
+    {
+        string Gal_Code [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Gal];
+        }
+        if (defined [my Block])
+        {
+            . [my Block] Debug_Generate;
+            append Gal_Code [my Block Gal];
+        }
+        else
+        {
+            append Gal_Code ';';
+        }
+        my= Debug Gal_Code;
+    }
+}
+class If_Statement [is Scoped_Statement]
+{
+    method void Debug_Generate
+    {
+        string Gal_Code [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Gal];
+        }
+        if (defined [my Block])
+        {
+            . [my Block] Debug_Generate;
+            append Gal_Code [my Block Gal];
+        }
+        else
+        {
+            append Gal_Code ';';
+        }
+        my= Debug Gal_Code;
+    }
+}
+class Append_Args_Statement [is Line_Statement];
+class Assign_Statement [is Line_Statement];
+class Invocation_Statement [is Line_Statement];
+class Argument_Statement [is Line_Statement]
+{
+    method void Debug_Generate
+    {
+        string Gal_Code [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Gal];
+        }
+        if (defined [my Block])
+        {
+            . [my Block] Debug_Generate;
+            append Gal_Code [my Block Gal];
+        }
+        else
+        {
+            append Gal_Code ';';
+        }
+        my= Debug Gal_Code;
+    }
+}
+class Comment_Statement [is Append_Args_Statement]
+{
+    method void Debug_Generate
+    {
+        string Gal_Code [class.property Gal_Keyword];
+        entity Argument;
+        foreach [my Arguments] Argument
+        {
+            append Gal_Code ' ' [. Argument Gal];
+        }
+        if (defined [my Block])
+        {
+            . [my Block] Debug_Generate;
+            append Gal_Code [my Block Gal];
+        }
+        else
+        {
+            append Gal_Code ';';
+        }
+        my= Debug Gal_Code;
+    }
+}
+class For_Statement [is Scoped_Statement];
+
+class Interface_Statement [is Scoped_Statement];
+
+class Class_Statement [is Scoped_Statement]
+{
+    method void Base_Structure
+    {
+        my= Class_Context [self];
+        entity Statement;
+        if (and (defined [my Block]) (defined [my Block Statements]))
+        {
+            foreach [my Block Statements] Statement
+            {
+                if (isa Statement Constructor_Statement)
+                {
+                    comment writeline 'Constructor Statement Found';
+                    my= Constructor Statement;
+                }
+                else.if (isa Statement Class_Property_Statement)
+                {
+                    comment writeline ':Structure - Class Property Statement: ' (. Statement To_String);
+                    push [my Class_Property_Statements] Statement;
+                }
+                else.if (isa Statement Property_Statement)
+                {
+                    push [my Property_Statements] Statement;
+                    my= Generate_Constructor [true];
+                }
+                else.if (isa Statement Interface_Statement)
+                {
+                    push [my Interface_Statements] Statement;
+                }
+                else
+                {
+                    push [my Main_Body] Statement;
+                }
+            }
+        }
+    }
+    
+}
+
+class Program [is Element]
+{
+    property list Statements;
+    property string Gal_Statements;
+    property string Fallback_Statements;
+    property string Python_Statements;
+    property string Javascript_Statements;
+    property string Mumps_Statements;
+    method void Gal_Add_Element [entity Child_Element]
+    {
+        push [my Elements] Child_Element;
+        push [my Statements] Child_Element;
+    }
+    method void Gal_Generate
+    {
+        string Code '';
+        entity Statement;
+        foreach [my Statements] Statement
+        {
+            if [. Statement Gal]
+            {
+                append Code [. Statement Gal] [line];
+            }
+            else
+            {
+                append Code '<Error no gal for ' (. Statement To_String) '>';
+            }
+        }
+        my= Gal_Statements Code;
+        my= Gal Code;
+    }
+    method void Debug_Generate
+    {
+        string Code '';
+        entity Statement;
+        foreach [my Statements] Statement
+        {
+            if [. Statement Gal]
+            {
+                append Code [. Statement Gal] [line];
+            }
+            else
+            {
+                append Code '<Error no gal for ' (. Statement To_String) '>';
+            }
+        }
+        my= Gal_Statements Code;
+        my= Debug Code;
+    }
+    method void Fallback_Generate
+    {
+        string Code '';
+        entity Statement;
+        foreach [my Statements] Statement
+        {
+            append Code [. Statement Fallback] [line];
+        }
+        my= Fallback_Statements Code;
+        my= Fallback Code;
+    }
+    method void Python_Generate
+    {
+        string Code [line];
+        entity Statement;
+        foreach [my Statements] Statement
+        {
+            comment dv '$Statement';
+            append Code [. Statement Python];
+        }
+        my= Python_Statements Code;
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Code [line];
+        entity Statement;
+        foreach [my Statements] Statement
+        {
+            append Code [. Statement Javascript];
+        }
+        my= Javascript_Statements Code;
+        my= Javascript Code;
+    }
+    method void Mumps_Generate
+    {
+        string Code '';
+        entity Statement;
+        foreach [my Statements] Statement
+        {
+            if [. Statement Mumps]
+            {
+                append Code [. Statement Mumps] [line];
+            }
+            else
+            {
+                append Code '<Error no mumps for ' (. Statement To_String) '>';
+            }
+        }
+        my= Mumps_Statements Code;
+        my= Mumps Code;
+    }
+}
+
+class Gal_File [is Program]
+{
+    property integer Start_Position -1;
+    property integer End_Position -1;
+    property string File_Name;
+    method void Read
+    {
+        string File_Name [my File_Name];
+        string File_Text;
+        file.readall File_Text File_Name;
+        my= Input File_Text;
+    }
+
+    method void Write
+    {
+        string File_Name [my File_Name];
+        string File_Text [my Input];
+        file.dump File_Text File_Name;
+    }
+}

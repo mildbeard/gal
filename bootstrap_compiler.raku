@@ -3,16 +3,21 @@
 
 sub Unquote($Quoted)
 {
+    my $fc = $Quoted.substr(0,1);
+    return $Quoted unless $fc eq '"' or $fc eq "'" or $fc eq '`';
     my $Text = $Quoted.substr(1, *-1);
     $Text = $Text.subst("\\\\", "\\", :g);
-    $Text = $Text.subst('\"', '"', :g);
-    $Text = $Text.subst('\\.', '.', :g);
-    $Text = $Text.subst('\\\$', '\$', :g);
-    $Text = $Text.subst('\\{', '{', :g);
-    $Text = $Text.subst('\\}', '}', :g);
-    $Text = $Text.subst('\\(', '(', :g);
-    $Text = $Text.subst('\\)', ')', :g);
-    $Text = $Text.subst('\\n', '\n', :g);
+    $Text = $Text.subst("\\\"", "\"", :g);
+    $Text = $Text.subst("\\\.", "\.", :g);
+    $Text = $Text.subst("\\\$", "\$", :g);
+    $Text = $Text.subst("\\\{", "\{", :g);
+    #$Text = $Text.subst("\\\_", "\_", :g);
+    $Text = $Text.subst("\\\}", "\}", :g);
+    $Text = $Text.subst("\\\(", "\(", :g);
+    $Text = $Text.subst("\\\)", "\)", :g);
+    $Text = $Text.subst("\\\[", "\[", :g);
+    $Text = $Text.subst("\\\]", "\]", :g);
+    $Text = $Text.subst("\\n", "\n", :g);
     return $Text;
 }
 
@@ -138,6 +143,12 @@ class Element
         my $End = self.EndPos // '?end';
         my $ClassName = self.^name // '?name';
         my $Name = $.Name // '';
+        if defined($.Text) && $.Text gt ''
+        {
+            my $Text = $.Text;
+            $Text = Enquote($.Text) if $Text.trim() ne $Text;
+            $Name = "$Name $Text";
+        }
         my $Components = "";
         my $Component;
         for @.Components -> $Component
@@ -145,7 +156,9 @@ class Element
             my $CStart = $Component.StartPos;
             my $CEnd = $Component.EndPos;
             my $CClass = $Component.^name;
-            $Components ~= " ($CStart-$CEnd $CClass)";
+            my $CText = $Component.Text;
+            $CText = Enquote($CText) if $CText.trim() ne $CText;
+            $Components ~= " ($CStart-$CEnd $CClass) $CText ";
         }
         my $Arguments = "";
         for @.Arguments -> $Component
@@ -153,7 +166,9 @@ class Element
             my $CStart = $Component.StartPos;
             my $CEnd = $Component.EndPos;
             my $CClass = $Component.^name;
-            $Arguments ~= ", $CStart-$CEnd $CClass ";
+            my $CText = $Component.Text;
+            $CText = Enquote($CText) if $CText.trim() ne $CText;
+            $Arguments ~= ", $CStart-$CEnd $CClass $CText ";
         }
         return "$Start-$End: $ClassName $Name $Components $Arguments";
     }
@@ -192,22 +207,44 @@ class Element
     }
     method Raku_Generate()
     {
-        my $Message = 'ERROR: Default Element Raku_Generate of ' ~ self.^name;
-        say $Message;
-        $.Raku = $Message;
+        #say 'Default Element Raku_Generate of ', self.^name;
+        self.Gal_Generate();
+        my Str $Input = $.Text;
+        my Str $Gal = $.Gal // '';
+        if $Gal eq '' or $Gal eq $Input
+        {
+            die "Raku_Generate not implemented by '" ~ self.^name ~ "'\.";
+        }
+        $.Text = $.Gal;
+        #say 'Tokenizing: ', $.Text;
+        self.Tokenize();
+        #self.Dump(True);
+        self.Parse();
+        self.Structure();
+        self.Prepare();
+        self.Attributes();
+        #self.Dump();
+        return;
+        my Str $Raku_Code = "";
+        my $Element;
+        for @.Elements -> $Element
+        {
+            $Raku_Code ~= $Element.Raku ~ "\n";
+        }
+        $.Raku = $Raku_Code;
     }
     
     method Tokenize
     {
-        say "Tokenize...";
+        #say "Tokenize...";
         Parser.Tokenize(self);
-        say "Done Tokenizing";
+        #say "Done Tokenizing";
     }
     method Parse
     {
-        say "Parse...";
+        #say "Parse...";
         Parser.Parse(self);
-        say "Done parsing.";
+        #say "Done parsing.";
     }
     method FixTokens()
     {
@@ -264,7 +301,21 @@ class Element
     method Error(Str $Message, Int $Position=$.Position)
     {
         %!Errors<$Position> ~= $Message;
-        say "Document Error: $Message";
+        my $Substring = '';
+        my $Window = 10;
+        my $Tnum = $Position - $Window;
+        $Tnum = 0 if $Tnum < 0;
+        say "Message: $Message";
+        for $Position-$Window..$Position-1 -> $Tnum
+        {
+            $Substring ~= $.Tokens[$Tnum].Text ~ ' ';
+        }
+        $Substring ~= '<*' ~ $.Tokens[$Position].Text ~ '*>';
+        for $Position+1..$Position+$Window -> $Tnum
+        {
+            $Substring ~= ' ' ~ $.Tokens[$Tnum].Text;
+        }
+        say "Document Error: $Message at $Position\n$Substring";
     }
     method Length()
     {
@@ -576,7 +627,7 @@ class Named_Element is Element
                 else
                 {
                     @.Arguments.push: $Component;
-                    $Component.Usage //= 'value';
+                    $Component.Usage = 'value' if $Component.Usage eq 'initial';
                 }
             }
         }
@@ -614,6 +665,9 @@ class Statement_Constant {...}
 class Statement_Constructor {...}
 class Statement_Contif {...}
 class Statement_Continue {...}
+class Statement_Debug {...}
+class Statement_Debug_Stack {...}
+class Statement_Debug_Variable {...}
 class Statement_Decrement {...}
 class Statement_Definition {...}
 class Statement_Hash_Assign {...}
@@ -625,7 +679,6 @@ class Statement_ElseIf {...}
 class Statement_Entities {...}
 class Statement_Entity {...}
 class Statement_Entity_New {...}
-class Statement_Exit {...}
 class Statement_Fallback {...}
 class Statement_Flag {...}
 class Statement_File_Dump {...}
@@ -633,7 +686,7 @@ class Statement_File_Slurp {...}
 class Statement_For_Range {...}
 class Statement_Foreach {...}
 class Statement_Foreachline {...}
-class Statement_Forever {...}
+class Statement_Forgive {...}
 class Statement_Forward {...}
 class Statement_Gal {...}
 class Statement_Goal {...}
@@ -672,7 +725,6 @@ class Statement_Proplist {...}
 class Statement_Propset {...}
 class Statement_Python {...}
 class Statement_Raise {...}
-class Statement_Readline {...}
 class Statement_Replace {...}
 class Statement_Return {...}
 class Statement_Returnif {...}
@@ -689,7 +741,6 @@ class Statement_Unless {...}
 class Statement_Variant {...}
 class Statement_Verb {...}
 class Statement_While {...}
-class Statement_Write {...}
 
 class Function_Invocation {...}
 
@@ -755,8 +806,10 @@ class Function_Variant {...}
 class Function_Whitespace {...}
 #class Function_~ {...}
 
+class Syntax_Backslash {...}
 class Syntax_Classname {...}
 class Syntax_Classprop {...}
+class Syntax_Class_Self {...}
 class Syntax_Dot {...}
 class Syntax_Embed {...}
 class Syntax_Entity {...}
@@ -773,6 +826,7 @@ class Syntax_List {...}
 class Syntax_Node {...}
 class Syntax_Null {...}
 class Syntax_Number {...}
+class Syntax_Self {...}
 class Syntax_String {...}
 class Syntax_True {...}
 class Syntax_Variant {...}
@@ -841,14 +895,17 @@ class Quote is Punct_Element
         return unless defined $.Quote;
         my $Text = $.Quote;
         $Text = $Text.subst("\\", "\\\\", :g);
-        $Text = $Text.subst('"', '\"', :g);
-        $Text = $Text.subst('.', '\\.', :g);
-        $Text = $Text.subst('$', '\\$', :g);
-        $Text = $Text.subst('{', '\\{', :g);
-        $Text = $Text.subst('}', '\\}', :g);
-        $Text = $Text.subst('(', '\\(', :g);
-        $Text = $Text.subst(')', '\\)', :g);
-        $Text = $Text.subst('\n', '\\n', :g);
+        $Text = $Text.subst("\"", "\\\"", :g);
+        $Text = $Text.subst("\.", "\\\.", :g);
+        $Text = $Text.subst("\$", "\\\$", :g);
+        $Text = $Text.subst("\{", "\\\{", :g);
+        $Text = $Text.subst("\}", "\\\}", :g);
+        #$Text = $Text.subst("\_", "\\\_", :g);
+        $Text = $Text.subst("\(", "\\\(", :g);
+        $Text = $Text.subst("\)", "\\\)", :g);
+        $Text = $Text.subst("\[", "\\\[", :g);
+        $Text = $Text.subst("\]", "\\\]", :g);
+        $Text = $Text.subst("\n", "\\n", :g);
         $.Raku = "\"$Text\"";
     }
     method Python_Generate()
@@ -954,9 +1011,7 @@ class Name is Element
         }
         my $Usage = $.Usage;
         my $Element = $.Parent.Lookup($OrigText);
-        if $Element and $Usage ne 'propref' 
-            and $Usage ne 'class' 
-            and $Usage ne 'method'
+        if $Element and $Usage ne 'propref' and $Usage ne 'class'
         {
             $Usage = $Element.Usage;
             #say "$Usage $OrigText overrides $.Usage";
@@ -1018,7 +1073,7 @@ class Name is Element
         }
         elsif $Usage eq 'variable' || $Usage eq 'value'
         {
-            if $Text eq 'self'
+            if $Text eq 'self' || substr($Text,0,1) eq '-'
             {
                 $.Raku = $Text;
             }
@@ -1051,10 +1106,7 @@ class Name is Element
         {
             #$Text = $Text.lc();
             $.Raku = $Text;
-            #if $Usage eq 'method'
-            #{
-            #    say "Usage $Usage text $Text";
-            #}
+            #say "Usage $Usage text $Text";
         }
         elsif $Usage eq 'list'
         {
@@ -1351,7 +1403,7 @@ class Key is Element
 {
     has $.Key is rw;
     has $.Value is rw;
-    has $.Usage is rw;
+    has $.Usage is rw = 'initial';
     method IsExpression() { return True; }
     method BuildComponents()
     {
@@ -1361,7 +1413,7 @@ class Key is Element
         {
             $Component.Parent = self;
             next unless $Component.IsExpression();
-            $Component.Usage //= 'value';
+            $Component.Usage = 'value' if $Component.Usage eq 'initial';
             @.Arguments.push($Component);
         }
     }
@@ -1421,6 +1473,9 @@ class Statement is Named_Element
         'contif' => Statement_Contif, 'continue.if' => Statement_Contif,
         'continue' => Statement_Continue,
         'decrement' => Statement_Decrement,
+        'debug' => Statement_Debug, 'd' => Statement_Debug,
+        'debug.stack' => Statement_Debug_Stack, 'ds' => Statement_Debug_Stack,
+        'debug.variable' => Statement_Debug_Variable, 'dv' => Statement_Debug_Variable,
         'definition' => Statement_Definition,
         'directive' => Statement_Syntax,
         'else.if' => Statement_ElseIf,
@@ -1429,15 +1484,14 @@ class Statement is Named_Element
         'entity' => Statement_Entity,
         'entity.new' => Statement_Entity_New,
         'error' => Statement_Raise,
-        'exit' => Statement_Exit,
         'fallback' => Statement_Fallback,
         'file.dump' => Statement_File_Dump,
         'file.readall' => Statement_File_Slurp,
         'file.slurp' => Statement_File_Slurp,
         'flag' => Statement_Flag,
-        'forever' => Statement_Forever,
         'foreachline' => Statement_Foreachline, 'foreach.line' => Statement_Foreachline, 
         'foreach' => Statement_Foreach, 'foreach.list' => Statement_Foreach,
+        'forgive' => Statement_Forgive,
         'for.range' => Statement_For_Range,
         'forward' => Statement_Forward,
         'gal' => Statement_Gal,
@@ -1445,9 +1499,9 @@ class Statement is Named_Element
         'group' => Statement_Group,
         'handle' => Statement_Handle,
         'hash' => Statement_Hash,
-        'hash.assign' => Statement_Hash_Assign,
-        'hash.delete' => Statement_Hash_Delete,
-        'hash.foreach' => Statement_Hash_Foreach,
+        'hash.assign' => Statement_Hash_Assign, 'dict.assign' => Statement_Hash_Assign,
+        'hash.delete' => Statement_Hash_Delete, 'dict.delete' => Statement_Hash_Delete,
+        'hash.foreach' => Statement_Hash_Foreach, 'dict.foreach' => Statement_Hash_Foreach,
         'http.get' => Statement_Http_Get,
         'i' => Statement_I, 
         'i=' => Statement_I_Equals, 
@@ -1489,7 +1543,6 @@ class Statement is Named_Element
         'push' => Statement_List_Append,
         'python' => Statement_Python,
         'raise' => Statement_Raise,
-        'readline' => Statement_Readline,
         'replace' => Statement_Replace,
         'returnif' => Statement_Returnif,
         'return' => Statement_Return,
@@ -1509,7 +1562,6 @@ class Statement is Named_Element
         'variant' => Statement_Variant,
         'verb' => Statement_Verb,
         'while' => Statement_While,
-        'write' => Statement_Write,
         'writeline' => Statement_Say,
         ;
     method IsStatement() { return True; }
@@ -1619,7 +1671,7 @@ class Block is Element
 class Function is Named_Element
 {
     method IsExpression() { return True; }
-    our $.Usage //= 'value';
+    has $.Usage is rw = 'value';
     # TODO: add Function classes.
     our $.Gal_Keyword;
     our $.Nonkeyword = Function_Invocation;
@@ -1646,10 +1698,11 @@ class Function is Named_Element
         'greater' => Function_Greater, 'gt' => Function_Greater,
         'indirect' => Function_Indirect,
         'integer' => Function_Integer,
-        'i' => Function_I, 
+        'i' => Function_I, 'we' => Function_I,
         'isa' => Function_Isa,
         'isnull' => Function_Isnull, 'string.isnull' => Function_Isnull,
         'key.exists' => Function_Keyexists, 'keyexists' => Function_Keyexists,
+        'key.get' => Function_Dict_Get, 'keyget' => Function_Dict_Get,
         'lastchar' => Function_Lastchar,
         'le' => Function_LessEqual,
         'string.le' => Function_StringLessEqual,
@@ -1672,7 +1725,7 @@ class Function is Named_Element
         'ne' => Function_NotEqual, '!=' => Function_NotEqual,
         'new' => Function_New,
         'not' => Function_Not, '!' => Function_Not,
-        'notnull' => Function_NotNull, 'string.notnull' => Function_NotNull,
+        'notnull' => Function_NotNull, 'not.null' => Function_NotNull, 'string.notnull' => Function_NotNull,
         'number' => Function_Number,
         'or' => Function_Or, '|' => Function_Or,
         'pop' => Function_List_Pop,
@@ -1747,8 +1800,10 @@ class Syntax is Named_Element
     has $.Usage is rw = 'value';
     our %.Classes = 
         '.' => Syntax_Dot,
+        'backslash' => Syntax_Backslash,
         'classname' => Syntax_Classname, 'class.name' => Syntax_Classname,
-        'classprop' => Syntax_Classprop, 'class.property' => Syntax_Classprop,
+        'classprop' => Syntax_Classprop, 'class.property' => Syntax_Classprop, 'cp' => Syntax_Classprop,
+        'class.self' => Syntax_Class_Self,
         'entity' => Syntax_Entity,
         'embed' => Syntax_Embed,
         'false' => Syntax_False,
@@ -1769,7 +1824,7 @@ class Syntax is Named_Element
         'number' => Syntax_Number,
         'property' => Syntax_Dot,
         'true' => Syntax_True,
-        'self' => Syntax_I,
+        'self' => Syntax_Self,
         'string' => Syntax_String,
         'variant' => Syntax_Variant,
         ;
@@ -1777,7 +1832,9 @@ class Syntax is Named_Element
     {
         unless defined($name)
         {
-            die "$.^name Classify \$name undefined - did you do () or [] or something??";
+            my $Message = "$.^name Classify \$name undefined - did you do () or [] or something??";
+            $document.Error($Message, $start);
+            die $Message;
         }
         my $First = substr($name, 0, 1);
         #say "Syntax Classifying '$name' first char $First $start-$end";
@@ -1790,7 +1847,9 @@ class Syntax is Named_Element
         {
             unless %.Classes{$name}:exists
             {
-                die "ERROR Syntax Classify. Unknown $.^name '$name' at $start-$end";
+                my $Message = "ERROR Syntax Classify. Unknown $.^name '$name'";
+                $document.Error($Message, $start);
+                die $Message;
             }
             my $Class = %.Classes{$name};
             $Element = $Class.new(Name => $name, Document => $document, StartPos => $start, EndPos => $end);
@@ -2265,7 +2324,7 @@ class Parser
             #print '.';
             $Token.Gal_Element($Document);
         }
-        say '';
+        #say '';
         my $InitialContext = Stmt_Context.new(:StartPos(0));
         $Document.PushContext($InitialContext);
         my @Elements = $Document.Elements;
@@ -2286,7 +2345,8 @@ class Parser
             #say 'parser attributes ', $Element.Express();
             $Element.Attributes();
         }
-        #say '';
+        $Document.Attributes();
+        #say 'completed parser attributes\n';
     }
     method Prepare($Document)
     {
@@ -2340,7 +2400,7 @@ class Scoped_Statement is Statement
             {
                 #say "Statement Component $Component";
                 @.Arguments.push: $Component;
-                $Component.Usage //= 'value';
+                $Component.Usage = 'value' if $Component.Usage eq 'initial';
             }
             elsif $Component.IsBlock()
             {
@@ -2435,7 +2495,13 @@ class Append_Args_Statement is Line_Statement
             {
                 $RakuArgs = $ArgRakuCode;
             }
-            elsif $ArgRakuCode.starts-with('"') && $RakuArgs.ends-with('"')
+            elsif $ArgRakuCode.starts-with("\"_") || $RakuArgs.ends-with("_\"")
+            {
+                # Append String Arguments into a comma-separated argument list.
+                $RakuArgs = "$RakuArgs ~ $ArgRakuCode";
+            }
+            elsif $ArgRakuCode.starts-with("\"") 
+                && $RakuArgs.ends-with("\"") 
             {
                 # Successive String Literal Consolidation.
                 my $RakuHead = chop($RakuArgs);
@@ -2607,6 +2673,12 @@ class Statement_Append is Line_Statement
                 $RakuArgs = $ArgRakuCode;
                 $Between = " ~= ";
             }
+            elsif $ArgRakuCode.starts-with('"_') && $RakuArgs.ends-with('_"')
+            {
+                # Append String Arguments into a comma-separated argument list.
+                $RakuArgs = "$RakuArgs$Between$ArgRakuCode";
+                $Between = " ~ ";
+            }
             elsif $ArgRakuCode.starts-with('"') && $RakuArgs.ends-with('"')
             {
                 # Successive String Literal Consolidation.
@@ -2673,12 +2745,12 @@ class Argument_Statement is Statement { }
 class Statement_Argument is Argument_Statement
 {
     our $.Gal_Keyword = "argument";
-    has $.Name is rw;
+    has $.Arg_Name is rw;
     has $.Usage_Value is rw;
     method Attributes()
     {
-        $.Name = @.Arguments.shift();
-        $.Name.Usage = "variable";
+        $.Arg_Name = @.Arguments.shift();
+        $.Arg_Name.Usage = "variable";
         if (@.Arguments.elems) > 0
         {
             $.Usage_Value = @.Arguments.shift();
@@ -2687,11 +2759,11 @@ class Statement_Argument is Argument_Statement
     }
     method Gal_Generate()
     {
-        my Str $Definition = "property entity " ~ $.Name.Gal ~ ";";
-        my Str $Code = "i= " ~ $.Name.Gal ~ " \(list\.shift [. self Listargs]\);\n";
+        my Str $Definition = "property entity " ~ $.Arg_Name.Gal ~ ";";
+        my Str $Code = ".= self " ~ $.Arg_Name.Gal ~ " \(list\.shift [. self Listargs]\);\n";
         if $.Usage_Value
         {
-            $Code ~= "\.= [. self " ~ $.Name.Gal ~ "] Usage " ~ $.Usage_Value.Gal ~ ";\n";
+            $Code ~= "\.= [. self " ~ $.Arg_Name.Gal ~ "] Usage " ~ $.Usage_Value.Gal ~ ";\n";
         }
         $.Gal_Definition = $Code;
         $.Gal = $Definition;
@@ -2701,12 +2773,12 @@ class Statement_Argument is Argument_Statement
 class Statement_Optional is Argument_Statement
 {
     our $.Gal_Keyword = "optional";
-    has $.Name is rw;
+    has $.VarName is rw;
     has $.Usage_Value is rw;
     method Attributes()
     {
-        $.Name = @.Arguments.shift();
-        $.Name.Usage = "variable";
+        $.VarName = @.Arguments.shift();
+        $.VarName.Usage = "variable";
         if (@.Arguments.elems) > 0
         {
             $.Usage_Value = @.Arguments.shift();
@@ -2715,12 +2787,16 @@ class Statement_Optional is Argument_Statement
     }
     method Gal_Generate()
     {
-        my Str $Definition = "property entity " ~ $.Name.Gal ~ ";";
-        my Str $Code = "if \(gt \(list\.length [\. self Listargs]\) 0\)\n\{\n    .= self " ~ $.Name.Gal ~ " \(list\.shift [\. self Listargs]\);\n\}\n";
+        my Str $GalName = $.VarName.Gal;
+        #say "Gal Name ", $GalName;
+        my Str $Definition = "property entity " ~ $GalName ~ ";";
+        my Str $Code = "if \(gt \(list\.length [\. self Listargs]\) 0\)\n\{\n    .= self " ~ $GalName ~ " \(list\.shift [\. self Listargs]\);\n";
+        #say "Code ", $Code;
         if $.Usage_Value
         {
-            $Code ~= "\.= [. self " ~ $.Name.Gal ~ "] Usage " ~ $.Usage_Value.Gal ~ ";\n";
+            $Code ~= "    \.= [. self " ~ $GalName ~ "] Usage " ~ $.Usage_Value.Gal ~ ";\n";
         }
+        $Code ~= "\}\n";
         $.Gal_Definition = $Code;
         $.Gal = $Definition;
     }
@@ -2751,25 +2827,6 @@ class Statement_Forward is Line_Statement
         $.Javascript = $JSCode;
     }
 }
-
-class Statement_Exit is Line_Statement 
-{
-    our $.Gal_Keyword = 'exit';
-    our $.Raku_Keyword = 'exit';
-    has $.Return_Code is rw;
-    method Attributes() 
-    {
-        $.Return_Code = @.Arguments[0];
-        $.Return_Code.Usage = 'value';
-    }
-    method Raku_Generate() 
-    { 
-        my $ReturnRaku = $.Return_Code.Raku;
-        my $RakuCode = "exit($ReturnRaku);";
-        $.Raku = $RakuCode;
-    }
-}
-
 class Statement_Indirect is Line_Statement
 {
     our $.Gal_Keyword = 'indirect';
@@ -2899,7 +2956,7 @@ class Multi_Declare_Statement is Declare_Statement
         my $Value;
         for @.InitialValues -> $Value
         {
-            $Value.Usage //= 'value';
+            $Value.Usage = 'value' if $Value.Usage eq 'initial';
         }
         unless defined($.Parent)
         {
@@ -2920,10 +2977,10 @@ class Definition_Statement is Scoped_Statement
     has Bool $.Generate_Attributes is rw;
     has $.Parent is rw;
     has $.Keyword is rw;
-    has $.Name is rw;
+    has $.My_Name is rw;
     method Attributes()
     {
-        $.Name = @.Arguments[0];
+        $.My_Name = @.Arguments[0];
         $.Keyword = @.Arguments[1];
         if (@.Arguments.elems) > 2
         {
@@ -2932,7 +2989,7 @@ class Definition_Statement is Scoped_Statement
     }
     method Gal_Generate()
     {
-        my Str $Gal_Code = "class " ~ $.Base_Class ~ "_" ~ $.Name.Gal;
+        my Str $Gal_Code = "class " ~ $.Base_Class ~ "_" ~ $.My_Name.Gal;
         if defined($.Parent_Class)
         {
             $Gal_Code ~= " [is " ~ $.Parent_Class.Gal ~ "_" ~ $.Base_Class ~ "]";
@@ -2961,6 +3018,7 @@ class Definition_Statement is Scoped_Statement
                 }
                 my Str $Attribute_Method = "method void Attributes\n\{\n" ~ $.Indent($Attribute_Statements) ~ "\}\n";
                 $Gal_Code ~= $.Indent($Attribute_Method);
+                #say 'Gal Code ', $Gal_Code;
             }
         }
         $Gal_Code ~= "\}";
@@ -3009,7 +3067,6 @@ class Statement_Syntax is Definition_Statement
 
 class Statement_String is Multi_Declare_Statement
 {
-    has Str $.RakuStatement = "my";
     our $.Gal_Keyword = 'string';
     our $.Raku_Type = 'Str';
     method Attributes()
@@ -3021,7 +3078,7 @@ class Statement_String is Multi_Declare_Statement
         my $Value;
         for @.InitialValues -> $Value
         {
-            $Value.Usage //= 'value';
+            $Value.Usage = 'value' if $Value.Usage eq 'initial';
             $Value.DataType = 'string';
         }
         unless defined($.Parent)
@@ -3049,6 +3106,12 @@ class Statement_String is Multi_Declare_Statement
             {
                 $RakuArgs = $ArgRakuCode;
                 $Between = " = ";
+            }
+            elsif $ArgRakuCode.starts-with('"_') && $RakuArgs.ends-with('_"')
+            {
+                # Append String Arguments into a comma-separated argument list.
+                $RakuArgs = "$RakuArgs$Between$ArgRakuCode";
+                $Between = " ~ ";
             }
             elsif $ArgRakuCode.starts-with('"') && $RakuArgs.ends-with('"')
             {
@@ -3106,7 +3169,6 @@ class Statement_String is Multi_Declare_Statement
 
 class Statement_List is Multi_Declare_Statement
 {
-    has Str $.RakuStatement = "my";
     our $.Gal_Keyword = 'list';
     method Attributes()
     { 
@@ -3116,7 +3178,7 @@ class Statement_List is Multi_Declare_Statement
         my $Value;
         for @.InitialValues -> $Value
         {
-            $Value.Usage //= 'value';
+            $Value.Usage = 'value' if $Value.Usage eq 'initial';
         }
         $.Parent.AddType($.Variable.Text, $.Variable);
     }
@@ -3162,7 +3224,6 @@ class Statement_List is Multi_Declare_Statement
 
 class Statement_List_Copy is Declare_Statement
 {
-    has Str $.RakuStatement = "my";
     our $.Gal_Keyword = 'list.copy';
     method Attributes()
     { 
@@ -3185,7 +3246,6 @@ class Statement_List_Copy is Declare_Statement
 
 class Statement_Hash is Multi_Declare_Statement
 {
-    has Str $.RakuStatement = "my";
     our $.Gal_Keyword = 'hash';
     method Attributes()
     { 
@@ -3236,7 +3296,6 @@ class Statement_Hash is Multi_Declare_Statement
 
 class Statement_Index is Multi_Declare_Statement
 {
-    has Str $.RakuStatement = "my";
     our $.Gal_Keyword = 'index';
     method Attributes()
     { 
@@ -3287,25 +3346,21 @@ class Statement_Index is Multi_Declare_Statement
 
 class Statement_Integer is Declare_Statement 
 {
-    has Str $.RakuStatement = "my";
     our $.Gal_Keyword = 'integer';
     our $.Raku_Type = 'Int';
 }
 class Statement_Number is Declare_Statement
 {
-    has Str $.RakuStatement = "my";
     our $.Gal_Keyword = 'number';
     our $.Raku_Type = 'Real';
 }
 class Statement_Flag is Declare_Statement
 {
-    has Str $.RakuStatement = "my";
     our $.Gal_Keyword = 'flag';
     our $.Raku_Type = 'Bool';
 }
 class Statement_Entity is Declare_Statement
 {
-    has Str $.RakuStatement = "my";
     our $.Gal_Keyword = 'entity';
     our $.Raku_Type = '';
 }
@@ -3343,7 +3398,6 @@ class Statement_Integers is Line_Statement
 }
 class Statement_Variant is Declare_Statement
 {
-    has Str $.RakuStatement = "my";
     our $.Gal_Keyword = 'variant';
     our $.Raku_Type = '';
 }
@@ -3356,9 +3410,9 @@ class Statement_Else is Scoped_Statement
     {
         unless $.^lookup('RakuStatement')
         {
-            say "DELEGATING TO SCOPED_STATEMENT PARENT";
+            #say "DELEGATING TO SCOPED_STATEMENT PARENT";
             nextsame;
-            say "DELEGATION COMPLETE";
+            #say "DELEGATION COMPLETE";
             return;
         }
         my $RakuCode = "$.RakuStatement ";
@@ -3388,6 +3442,25 @@ class Statement_Else is Scoped_Statement
         $.Raku = $RakuCode;
     }
 }
+class Statement_Forgive is Scoped_Statement
+{
+    our $.Gal_Keyword = 'forgive';
+    has $.RakuStatement = "try";
+    method Raku_Generate()
+    {
+        unless $.^lookup('RakuStatement')
+        {
+            #say "DELEGATING TO SCOPED_STATEMENT PARENT";
+            nextsame;
+            #say "DELEGATION COMPLETE";
+            return;
+        }
+        my $BlockRaku = $.Block.Raku;
+        my $RakuCode = "$.RakuStatement$BlockRaku";
+        $.Raku = $RakuCode;
+    }
+}
+
 class Statement_Try is Scoped_Statement
 {
     our $.Gal_Keyword = 'try';
@@ -3397,9 +3470,9 @@ class Statement_Try is Scoped_Statement
     {
         unless $.^lookup('RakuStatement')
         {
-            say "DELEGATING TO SCOPED_STATEMENT PARENT";
+            #say "DELEGATING TO SCOPED_STATEMENT PARENT";
             nextsame;
-            say "DELEGATION COMPLETE";
+            #say "DELEGATION COMPLETE";
             return;
         }
         my $RakuCode = "$.RakuStatement \{\n";
@@ -3444,9 +3517,9 @@ class Statement_Catch is Scoped_Statement
     {
         unless $.^lookup('RakuStatement')
         {
-            say "DELEGATING TO SCOPED_STATEMENT PARENT";
+            #say "DELEGATING TO SCOPED_STATEMENT PARENT";
             nextsame;
-            say "DELEGATION COMPLETE";
+            #say "DELEGATION COMPLETE";
             return;
         }
         my $RakuCode = "$.RakuStatement \{ default \{\n";
@@ -3470,9 +3543,9 @@ class Statement_ElseIf is Scoped_Statement
     {
         unless $.^lookup('RakuStatement')
         {
-            say "DELEGATING TO SCOPED_STATEMENT PARENT";
+            #say "DELEGATING TO SCOPED_STATEMENT PARENT";
             nextsame;
-            say "DELEGATION COMPLETE";
+            #say "DELEGATION COMPLETE";
             return;
         }
         my $RakuCode = "$.RakuStatement ";
@@ -3502,6 +3575,7 @@ class Statement_ElseIf is Scoped_Statement
         $.Raku = $RakuCode;
     }
 }
+
 class Statement_Foreach is Scoped_Statement
 {
     our $.Gal_Keyword = 'foreach';
@@ -3558,9 +3632,9 @@ class Statement_For_Range is Scoped_Statement
         $.IterVar = @.Arguments[0];
         $.IterVar.Usage = 'variable';
         $.StartValue = @.Arguments[1];
-        $.StartValue.Usage //= 'value';
+        $.StartValue.Usage = 'value' if $.StartValue.Usage eq 'initial';
         $.EndValue = @.Arguments[2];
-        $.EndValue.Usage //= 'value';
+        $.EndValue.Usage = 'value' if $.EndValue.Usage eq 'initial';
     }
     method Raku_Generate()
     {
@@ -3579,27 +3653,6 @@ class Statement_For_Range is Scoped_Statement
         $.Raku = $RakuCode;
     }
 }
-
-class Statement_Forever is Scoped_Statement
-{
-    our $.Gal_Keyword = 'forever';
-    has $.RakuStatement = "while (1)";
-    has $.JSFunction = 'while(1)';
-    method Raku_Generate()
-    {
-        my $RakuCode = $.RakuStatement;
-        if $.Block && $.Block.Raku
-        {
-            $RakuCode ~= $.Block.Raku;
-        }
-        else
-        {
-            $RakuCode ~= ' { } ';
-        }
-        $.Raku = $RakuCode;
-    }
-}
-
 class Statement_Hash_Foreach is Scoped_Statement
 {
     our $.Gal_Keyword = 'hash.foreach';
@@ -3672,17 +3725,17 @@ class Statement_Iterate is Scoped_Statement
     {
         $.Target = @.Arguments[0];
         $.Target.Usage = 'hash';
-        $.ValueVar = @.Arguments[1];
-        $.ValueVar.Usage = 'variable';
-        $.IterVar = @.Arguments[2];
+        $.IterVar = @.Arguments[1];
         $.IterVar.Usage = 'variable';
+        $.ValueVar = @.Arguments[2];
+        $.ValueVar.Usage = 'variable';
     }
     method Raku_Generate()
     {
         my $TargetRaku = $.Target.Raku;
         my $IterVarRaku = $.IterVar.Raku;
         my $ValueVarRaku = $.ValueVar.Raku;
-        my $RakuCode = "$.RakuStatement $TargetRaku\.kv -> $IterVarRaku, $ValueVarRaku";
+        my $RakuCode = "$.RakuStatement $TargetRaku\.sort()\.map(*\.kv) -> ($IterVarRaku, $ValueVarRaku)";
         if $.Block && $.Block.Raku
         {
             $RakuCode ~= $.Block.Raku;
@@ -3751,11 +3804,14 @@ class Statement_Entity_New is Line_Statement
         my $Variable = @Args.shift();
         my $Class = @Args.shift();
         $Variable.Usage = 'variable';
-        $.Parent.AddType($Variable.Text, $Variable);
         $Class.Usage = 'class';
         my $Arg;
         for @Args -> $Arg
         {
+            if $Arg.Usage eq 'initial'
+            {
+                $Arg.Usage = 'variable';
+            }
             if $Arg.Key
             {
                 $Arg.Key.Usage = 'key';
@@ -3764,6 +3820,7 @@ class Statement_Entity_New is Line_Statement
     }
     method Raku_Generate()
     {
+        #say "Entity New Begin";
         my @Args = @.Arguments;
         my $Variable = @Args.shift();
         my $Class = @Args.shift();
@@ -3788,6 +3845,8 @@ class Statement_Entity_New is Line_Statement
         my $ClassRaku = $Class.Raku;
         my $RakuCode = "my $VariableRaku = $ClassRaku\.new\($RakuArgs\);";
         $.Raku = $RakuCode;
+        #say $RakuCode;
+        #say "Entity New End\n";
     }
 }
 
@@ -3860,7 +3919,7 @@ class Statement_Propset is Line_Statement
 
 class Statement_I_Equals is Line_Statement 
 {
-    our $.Gal_Keyword = 'i=';
+    our $.Gal_Keyword = '.= self';
     has $.DataType is rw = '';
     has $.Property is rw;
     has $.Value is rw;
@@ -3967,11 +4026,11 @@ class Statement_Classpropset is Line_Statement
         $.Property = @Args.shift();
         $.Property.Usage = 'propref';
         $.Value = @Args.pop();
-        $.Value.Usage //= 'value';
+        $.Value.Usage = 'value' if $.Value.Usage eq 'initial';
         my $Argument;
         for @Args -> $Argument
         {
-            $Argument.Usage //= 'value';
+            $Argument.Usage = 'value' if $Argument.Usage eq 'initial';
         }
         @.Subscripts = @Args;
     }
@@ -4021,7 +4080,7 @@ class Statement_Return is Line_Statement
         if @.Arguments.elems > 0
         {
             $.ReturnValue = @.Arguments[0];
-            $.ReturnValue.Usage //= 'value';
+            $.ReturnValue.Usage = 'value' if $.ReturnValue.Usage eq 'initial';
         }
     }
     method Raku_Generate() 
@@ -4116,7 +4175,7 @@ class Statement_Increment is Line_Statement
     method Attributes()
     { 
         $.ReturnValue = @.Arguments[0];
-        $.ReturnValue.Usage //= 'value';
+        $.ReturnValue.Usage = 'value' if $.ReturnValue.Usage eq 'initial';
     }
     method Raku_Generate() 
     { 
@@ -4132,7 +4191,7 @@ class Statement_Know is Line_Statement
     method Attributes()
     { 
         $.Module = @.Arguments[0];
-        $.Module.Usage //= 'name';
+        $.Module.Usage = 'name' if $.Module.Usage eq 'initial';
     }
     method Raku_Generate() 
     { 
@@ -4150,7 +4209,7 @@ class Statement_Module is Line_Statement
     method Attributes()
     { 
         $.Module = @.Arguments[0];
-        $.Module.Usage //= 'name';
+        $.Module.Usage = 'name' if $.Module.Usage eq 'initial';
     }
     method Raku_Generate() 
     { 
@@ -4168,7 +4227,7 @@ class Statement_Decrement is Line_Statement
     method Attributes()
     { 
         $.ReturnValue = @.Arguments[0];
-        $.ReturnValue.Usage //= 'value';
+        $.ReturnValue.Usage = 'value' if $.ReturnValue.Usage eq 'initial';
     }
     method Raku_Generate() 
     { 
@@ -4187,7 +4246,7 @@ class Statement_Assign is Line_Statement
         $.Variable = @.Arguments[0];
         $.Variable.Usage = 'variable';
         $.Value = @.Arguments[1];
-        $.Value.Usage //= 'value';
+        $.Value.Usage = 'value' if $.Value.Usage eq 'initial';
     }
     method Raku_Generate() 
     { 
@@ -4208,9 +4267,9 @@ class Statement_Replace is Line_Statement
         $.Variable = @.Arguments[0];
         $.Variable.Usage = 'variable';
         $.Search = @.Arguments[1];
-        $.Search.Usage //= 'value';
+        $.Search.Usage = 'value' if $.Search.Usage eq 'initial';
         $.Replace = @.Arguments[2];
-        $.Replace.Usage //= 'value';
+        $.Replace.Usage = 'value' if $.Replace.Usage eq 'initial';
     }
     method Raku_Generate() 
     { 
@@ -4230,7 +4289,7 @@ class Statement_Add is Line_Statement
         my $Argument;
         for @.Arguments -> $Argument
         {
-            $Argument.Usage //= 'value'
+            $Argument.Usage = 'value' if $Argument.Usage eq 'initial';
         }
         $.Variable = @.Arguments[0];
         $.Variable.Usage = 'variable';
@@ -4258,11 +4317,11 @@ class Statement_Returnif is Line_Statement
     method Attributes() 
     {
         $.Condition = @.Arguments[0];
-        $.Condition.Usage //= 'value';
+        $.Condition.Usage = 'value' if $.Condition.Usage eq 'initial';
         if @.Arguments.elems == 2
         {
             $.Value = @.Arguments[1];
-            $.Value.Usage //= 'value';
+            $.Value.Usage = 'value' if $.Value.Usage eq 'initial';
         }
     }
     method Raku_Generate() 
@@ -4297,9 +4356,9 @@ class Statement_Hash_Assign is Line_Statement
         $.Variable = @.Arguments[0];
         $.Variable.Usage = 'variable';
         $.Key = @.Arguments[1];
-        $.Key.Usage //= 'value';
+        $.Key.Usage = 'value' if $.Key.Usage eq 'initial';
         $.Value = @.Arguments[2];
-        $.Value.Usage //= 'value';
+        $.Value.Usage = 'value' if $.Value.Usage eq 'initial';
     }
     method Raku_Generate() 
     { 
@@ -4321,7 +4380,7 @@ class Statement_Hash_Delete is Line_Statement
         $.Variable = @.Arguments[0];
         $.Variable.Usage = 'variable';
         $.Key = @.Arguments[1];
-        $.Key.Usage //= 'value';
+        $.Key.Usage = 'value' if $.Key.Usage eq 'initial';
     }
     method Raku_Generate() 
     { 
@@ -4342,7 +4401,7 @@ class Statement_File_Slurp is Line_Statement
         $.Variable = @.Arguments[0];
         $.Variable.Usage = 'variable';
         $.FileName = @.Arguments[1];
-        $.FileName.Usage //= 'value';
+        $.FileName.Usage = 'value' if $.FileName.Usage eq 'initial';
     }
     method Raku_Generate() 
     {
@@ -4364,7 +4423,7 @@ class Statement_File_Dump is Line_Statement
         $.Variable = @.Arguments[0];
         $.Variable.Usage = 'variable';
         $.FileName = @.Arguments[1];
-        $.FileName.Usage //= 'value';
+        $.FileName.Usage = 'value' if $.FileName.Usage eq 'initial';
     }
     method Raku_Generate() 
     {
@@ -4385,7 +4444,7 @@ class Statement_List_Append is Line_Statement
         $.List = @.Arguments[0];
         $.List.Usage = 'list';
         $.Value = @.Arguments[1];
-        $.Value.Usage //= 'variable';
+        $.Value.Usage = 'variable' if $.Value.Usage eq 'initial';
     }
     method Raku_Generate() 
     { 
@@ -4407,9 +4466,9 @@ class Statement_List_Splice is Line_Statement
         $.List = @.Arguments[0];
         $.List.Usage = 'list';
         $.Index = @.Arguments[1];
-        $.Index.Usage //= 'value';
+        $.Index.Usage = 'value' if $.Index.Usage eq 'initial';
         $.Count = @.Arguments[2];
-        $.Count.Usage //= 'value';
+        $.Count.Usage = 'value' if $.Count.Usage eq 'initial';
     }
     method Raku_Generate() 
     { 
@@ -4472,13 +4531,13 @@ class Class_Statement is Scoped_Statement
         {
             if ($Statement ~~ Statement_Classprop)
             {
-                my $Name = $Statement.Property;
+                my $Name = $Statement.Property.Text;
                 #say "                classprop $Name";
                 %.ClassProperties{$Name} = $Statement;
             } 
             elsif ($Statement ~~ Statement_Property)
             {
-                my $Name = $Statement.Property;
+                my $Name = $Statement.Property.Text;
                 #say "                property $Name";
                 %.Properties{$Name} = $Statement;
             }
@@ -4508,13 +4567,13 @@ class Class_Statement is Scoped_Statement
             {
                 if ($Statement ~~ Statement_Classprop)
                 {
-                    my $Name = $Statement.Property;
+                    my $Name = $Statement.Property.Text;
                     #say "    Classprop $Name";
                     %.ClassProperties{$Name} = $Statement;
                 } 
                 elsif ($Statement ~~ Statement_Property)
                 {
-                    my $Name = $Statement.Property;
+                    my $Name = $Statement.Property.Text;
                     #say "    Property $Name";
                     %.Properties{$Name} = $Statement;
                 }
@@ -4589,6 +4648,7 @@ class Class_Statement is Scoped_Statement
             my $Name;
             for %.ClassProperties.keys.sort -> $Name
             {
+                #say 'classprop ', $Name;
                 $Statement = %.ClassProperties{$Name};
                 if defined($Statement) && defined($Statement.Raku)
                 {
@@ -4602,6 +4662,7 @@ class Class_Statement is Scoped_Statement
             # %.Properties{$Name}
             for %.Properties.keys.sort -> $Name
             {
+                #say 'prop ', $Name;
                 $Statement = %.Properties{$Name};
                 if defined($Statement) && defined($Statement.Raku)
                 {
@@ -4614,6 +4675,7 @@ class Class_Statement is Scoped_Statement
             }
             for %.Methods.keys.sort -> $Name
             {
+                #say 'method ', $Name;
                 $Statement = %.Methods{$Name};
                 if defined($Statement) && defined($Statement.Raku)
                 {
@@ -4702,22 +4764,25 @@ class Statement_Group is Class_Statement
     method AddStatement($Statement)
     {
         $Statement.Group = self;
-        my $Name = $Statement.ClassName.Text;
-        unless ($Name ~~ /^:/)
+        if $Statement ~~ Class_Statement
         {
-            $Name = ':' ~ $Name;
-        }
-        if (defined %.ClassNames{$Name})
-        {
-            #say "        $.Name ", $.ClassName.Text, " merges $Name";
-            my $CanonicalClass = %.ClassNames{$Name};
-            $CanonicalClass.MergeClass($Statement);
-        }
-        else
-        {
-            #say "        $.Name ", $.ClassName.Text, " adds $Name";
-            %.ClassNames{$Name} = $Statement;
-            @.ToGenerate.push($Statement);
+            my $Name = $Statement.ClassName.Text;
+            unless ($Name ~~ /^:/)
+            {
+                $Name = ':' ~ $Name;
+            }
+            if (defined %.ClassNames{$Name})
+            {
+                #say "        $.Name ", $.ClassName.Text, " merges $Name";
+                my $CanonicalClass = %.ClassNames{$Name};
+                $CanonicalClass.MergeClass($Statement);
+            }
+            else
+            {
+                #say "        $.Name ", $.ClassName.Text, " adds $Name";
+                %.ClassNames{$Name} = $Statement;
+                @.ToGenerate.push($Statement);
+            }
         }
     }
     method Gal_Generate()
@@ -4801,7 +4866,74 @@ class Statement_Group is Class_Statement
 
 class Statement_Goal is Statement_Group
 {
-    our $.Gal_Keyword = 'goal';
+    our $.Gal_Keyword = 'class';
+    method Gal_Generate()
+    {
+        my $Argument;
+        my @Args = @.Arguments;
+        my $Class = @Args.shift;
+        my $Class_Name = $Class.Gal;
+        $Class_Name = "Group_$Class_Name";
+        my $GalCode = "class $Class_Name";
+        for @Args -> $Argument
+        {
+            my $ArgCode = $Argument.Gal;
+            unless defined $ArgCode
+            {
+                $ArgCode = "<! ERROR UNDEFINED Scoped Statement $Argument!>";
+            }
+            #say "Scoped Statement Argument $ArgCode";
+            if $ArgCode.starts-with('[') and $GalCode.ends-with(']')
+            {
+                $GalCode = $GalCode.substr(0, *-1) ~ ", " ~ $ArgCode.substr(1);
+            }
+            else
+            {
+                $GalCode ~= " $ArgCode";
+            }
+        }
+        $GalCode ~= " [is Goal]";
+        if $.Block && $.Block.Gal
+        {
+            my $BlockCode = "";
+            my $Statement;
+            my $Name;
+            for %.ClassProperties.keys.sort -> $Name
+            {
+                $Statement = %.ClassProperties{$Name};
+                $Statement.Gal_Generate();
+                $BlockCode = $BlockCode ~ $Statement.Gal ~ "\n";
+            }
+            # %.Properties{$Name}
+            for %.Properties.keys.sort -> $Name
+            {
+                $Statement = %.Properties{$Name};
+                $Statement.Gal_Generate();
+                $BlockCode = $BlockCode ~ $Statement.Gal ~ "\n";
+            }
+            for %.Methods.keys.sort -> $Name
+            {
+                $Statement = %.Methods{$Name};
+                $Statement.Gal_Generate();
+                #say $Statement.Gal;
+                $BlockCode = $BlockCode ~ $Statement.Gal ~ "\n";
+            }
+            for %.ClassNames.keys.sort -> $Name
+            {
+                $Statement = %.ClassNames{$Name};
+                $Statement.Gal_Generate();
+                #say $Statement.Gal;
+                $BlockCode = $BlockCode ~ $Statement.Gal ~ "\n";
+            }
+            $BlockCode = $.Block.Indent($BlockCode);
+            $GalCode ~= "\n\{\n$BlockCode\} ";
+        }
+        else
+        {
+            $GalCode ~= '; ';
+        }
+        $.Gal = $GalCode;
+    }
 }
 
 class Statement_Language is Definition_Statement
@@ -4908,7 +5040,7 @@ class If_Statement is Scoped_Statement
     method Attributes()
     { 
         $.Condition = @.Arguments[0];
-        $.Condition.Usage //= 'value';
+        $.Condition.Usage = 'value' if $.Condition.Usage eq 'initial';
     }
 }
 
@@ -4921,9 +5053,9 @@ class Statement_If is If_Statement
     {
         unless $.^lookup('RakuStatement')
         {
-            say "DELEGATING TO SCOPED_STATEMENT PARENT";
+            #say "DELEGATING TO SCOPED_STATEMENT PARENT";
             nextsame;
-            say "DELEGATION COMPLETE";
+            #say "DELEGATION COMPLETE";
             return;
         }
         my $RakuCode = "$.RakuStatement ";
@@ -4962,7 +5094,7 @@ class Statement_Unless is Scoped_Statement
     method Attributes()
     { 
         $.Condition = @.Arguments[0];
-        $.Condition.Usage //= 'value';
+        $.Condition.Usage = 'value' if $.Condition.Usage eq 'initial';
     }
     method Gal_Generate()
     {
@@ -4973,9 +5105,9 @@ class Statement_Unless is Scoped_Statement
     {
         unless $.^lookup('RakuStatement')
         {
-            say "DELEGATING TO SCOPED_STATEMENT PARENT";
+            #say "DELEGATING TO SCOPED_STATEMENT PARENT";
             nextsame;
-            say "DELEGATION COMPLETE";
+            #say "DELEGATION COMPLETE";
             return;
         }
         my $RakuCode = "$.RakuStatement ";
@@ -5014,15 +5146,15 @@ class Statement_While is Scoped_Statement
     method Attributes()
     { 
         $.Condition = @.Arguments[0];
-        $.Condition.Usage //= 'value';
+        $.Condition.Usage = 'value' if $.Condition.Usage eq 'initial';
     }
     method Raku_Generate()
     {
         unless $.^lookup('RakuStatement')
         {
-            say "DELEGATING TO SCOPED_STATEMENT PARENT";
+            #say "DELEGATING TO SCOPED_STATEMENT PARENT";
             nextsame;
-            say "DELEGATION COMPLETE";
+            #say "DELEGATION COMPLETE";
             return;
         }
         my $RakuCode = "$.RakuStatement ";
@@ -5259,6 +5391,11 @@ class Http_Statement is Scoped_Statement
             if $RakuArgs eq ""
             {
                 $RakuArgs = $ArgRakuCode;
+            }
+            elsif $ArgRakuCode.starts-with('"_') && $RakuArgs.ends-with('_"')
+            {
+                # Append String Arguments into a comma-separated argument list.
+                $RakuArgs = "$RakuArgs, $ArgRakuCode";
             }
             elsif $ArgRakuCode.starts-with('"') && $RakuArgs.ends-with('"')
             {
@@ -5503,6 +5640,14 @@ class Statement_Property is Line_Statement
         {
             $.Property.Usage = "property";
         }
+        if defined $.InitialValue
+        {
+            $.InitialValue.Usage = 'value';
+            if defined $.DataType
+            {
+                $.InitialValue.DataType = $.DataType
+            }
+        }
         #say "Property Attributes $Contain ", $.Property.Text;
     }
     method Raku_Prepare() { }
@@ -5619,35 +5764,6 @@ class Statement_Constant is Line_Statement
     }
 }
 
-class Statement_Readline is Line_Statement
-{
-    our $.Gal_Keyword = 'writeline';
-    has $.PythonFunction = 'print';
-    has $.MumpsStatement = 'write';
-    has $.JSFunction = 'console.log';
-    method Attributes() 
-    {
-        my $Argument;
-        for @.Arguments -> $Argument
-        {
-            $Argument.Usage = 'variable';
-            $Argument.DataType = 'string';
-        }
-    }
-    method Raku_Generate() 
-    { 
-        my $RakuCode = '';
-        my $Between = '';
-        my $Argument;
-        for @.Arguments -> $Argument
-        {
-            $RakuCode ~= $Between ~ $Argument.Raku ~ ' = get();';
-            $Between = "\n";
-        }
-        $.Raku = $RakuCode;
-    }
-}
-
 class Statement_Say is Append_Args_Statement
 {
     our $.Gal_Keyword = 'writeline';
@@ -5660,8 +5776,11 @@ class Statement_Say is Append_Args_Statement
         my $Argument;
         for @.Arguments -> $Argument
         {
+            #say $Argument.Express(), " begin";
             $Argument.Usage = 'value';
+            #say $Argument.Express(), " middle";
             $Argument.DataType = 'string';
+            #say $Argument.Express(), " end";
         }
     }
 
@@ -5694,13 +5813,10 @@ class Statement_Say is Append_Args_Statement
     }
 }
 
-class Statement_Write is Append_Args_Statement
+class Statement_Debug is Append_Args_Statement
 {
-    our $.Gal_Keyword = 'write';
-    has $.RakuStatement = "print";
-    has $.PythonFunction = 'print';
-    has $.MumpsStatement = 'write';
-    has $.JSFunction = 'console.log';
+    our $.Gal_Keyword = 'debug';
+    has $.RakuStatement = "";
     method Attributes() 
     {
         my $Argument;
@@ -5710,33 +5826,70 @@ class Statement_Write is Append_Args_Statement
             $Argument.DataType = 'string';
         }
     }
+}
 
-    method Mumps_Generate() 
+class Statement_Debug_Stack is Append_Args_Statement
+{
+    our $.Gal_Keyword = 'debug.stack';
+    method Raku_Generate()
+    { 
+        my $RakuCode = 'say "Stack"; say ~Backtrace.new;';
+        $.Raku = $RakuCode;
+    }
+}
+
+class Statement_Debug_Variable is Append_Args_Statement
+{
+    our $.Gal_Keyword = 'debug.variable';
+    method Attributes() 
     {
-        my @Arguments;
-        my Element $Argument;
-        my $MumpsArgs = "";
+        my $Argument;
         for @.Arguments -> $Argument
         {
-            next unless $Argument.IsExpression();
-            my $ArgMumpsCode = $Argument.Mumps;
-            unless $ArgMumpsCode
-            {
-                say "ERROR: Argument $Argument has no .Mumps";
-                say $Argument.Express();
-            }
-            if $MumpsArgs eq ""
-            {
-                $MumpsArgs = $ArgMumpsCode;
-            }
-            else
-            {
-                # Append String Arguments into a comma-separated argument list.
-                $MumpsArgs ~= ",$ArgMumpsCode";
-            }
+            $Argument.Usage = 'string';
+            $Argument.DataType = 'string';
         }
-        my Str $MumpsCode = $.MumpsStatement ~ ' ' ~ $MumpsArgs;
-        $.Mumps = $MumpsCode;
+    }
+    method Raku_Generate
+    {
+        my $Argument;
+        my $Code = 'try { say \'DV: \'';
+        for @.Arguments -> $Argument
+        {
+            my $Text = $Argument.Raku;
+            my $Unquoted = Unquote($Text);
+            my $First = substr($Unquoted, 0, 1);
+            my $Method = '';
+            if ($First eq '$')
+            {
+                $Method = '.Str';
+                #$Method = '.gist';
+            }
+            elsif ($First eq '@')
+            {
+                $Method = '.gist';
+            }
+            elsif ($First eq '%')
+            {
+                $Method = '.gist';
+            }
+            $Code ~= ", '$Unquoted: ', $Unquoted$Method";
+        }
+        $Code ~= '; } ';
+        $.Raku = $Code;
+    }
+    method Raku_Generate_1
+    {
+        my $Argument;
+        my $Code = 'try { ';
+        for @.Arguments -> $Argument
+        {
+            my $Text = $Argument.Raku;
+            my $Unquoted = Unquote($Text);
+            $Code ~= "say $Text,':'; Dump($Unquoted, :skip-methods(True), :max-recursion(0));\n";
+        }
+        $Code ~= ' } ';
+        $.Raku = $Code;
     }
 }
 
@@ -5839,18 +5992,11 @@ class Statement_Comment is Line_Statement
                 say "ERROR: Argument $Argument has no .Raku";
                 say $Argument.Express();
             }
-            $ArgRakuCode = Unquote($ArgRakuCode);
+            #$ArgRakuCode = Unquote($ArgRakuCode);
             $ArgRakuCode = $ArgRakuCode.subst('\n', ' ', :g);
-            if $RakuArgs eq ""
-            {
-                $RakuArgs = $ArgRakuCode;
-            }
-            else
-            {
-                $RakuArgs = "$RakuArgs $ArgRakuCode";
-            }
+            $RakuArgs ~= " $ArgRakuCode";
         }
-        my Str $RakuCode = "$.RakuStatement $RakuArgs";
+        my Str $RakuCode = "$.RakuStatement$RakuArgs";
         $.Raku = $RakuCode;
     }
 }
@@ -5888,8 +6034,8 @@ class Statement_Todo is Line_Statement
 
 class Statement_Definition is Line_Statement
 {
-    our $.Gal_Keyword = '';
-    has $.RakuStatement = "";
+    our $.Gal_Keyword = 'definition';
+    has $.RakuStatement = "# DEFINITION:";
     method Raku_Generate() 
     {
         my @Arguments;
@@ -5944,7 +6090,7 @@ class Statement_Invocation is Statement
         }
         $GalCode ~= ";";
         $.Gal = $GalCode;
-        say "Gal $.^name Generated $.Gal";
+        #say "Gal $.^name Generated $.Gal";
     }
     method Raku_Generate()
     {
@@ -6020,7 +6166,7 @@ class Statement_Call is Line_Statement
 
 class Statement_I is Line_Statement
 {
-    our $.Gal_Keyword = 'i';
+    our $.Gal_Keyword = '. self';
     has $.Method is rw;
     has @.Meth_Args is rw;
     method Attributes()
@@ -6110,17 +6256,27 @@ class Function_Invocation is Function
 
 class Function_I is Function
 {
-    our $.Gal_Keyword = 'i';
+    our $.Gal_Keyword = '. self';
+    has $.Method is rw;
+    has @.Meth_Args is rw;
+    method Attributes()
+    {
+        @.Meth_Args = @.Arguments;
+        $.Method = @.Meth_Args.pop();
+        $.Method.Usage = 'method';
+        my $Argument;
+        for @.Meth_Args -> $Argument
+        {
+            $Argument.Usage = 'value';
+        }
+    }
     method Raku_Generate()
     {
-        my @Args = @.Arguments;
-        my $Method = @Args.shift();
-        my $MethodName = $Method.Raku;
-        my $ObjectRaku = '$';
-        my $RakuCode = $ObjectRaku ~ '.' ~ $MethodName ~ '(';
+        my $MethodName = $.Method.Raku;
+        my $RakuCode = '$.' ~ $MethodName ~ '(';
         my $Argument;
         my $Between = "";
-        for @Args -> $Argument
+        for @.MethArgs -> $Argument
         {
             my $ArgCode = $Argument.Raku;
             unless defined $ArgCode
@@ -6138,6 +6294,26 @@ class Function_I is Function
 class Function_Dot is Function
 {
     our $.Gal_Keyword = '.';
+    method Attributes()
+    {
+        #say $.Express(), " begin";
+        my @Args = @.Arguments;
+        #say "Arglength? ";
+        my $Object = @Args.shift();
+        #say $Object.Express(), " object";
+        $Object.Usage = 'value' if $Object.Usage eq 'initial';
+        my $Method = @Args.shift();
+        #say $Method.Express(), " method";
+        $Method.Usage = 'method';
+        my $Argument;
+        for @Args -> $Argument
+        {
+            #say $Argument.Express(), " argument";
+            $Argument.Usage = 'variable' if $Argument.Usage eq 'initial';
+            #say $Argument.Express(), " arg success";
+        }
+        #say $.Express(), " end";
+    }
     method Raku_Generate()
     {
         my @Args = @.Arguments;
@@ -6171,10 +6347,10 @@ class Function_Split is Function
     method Attributes()
     {
         $.String = @.Arguments[0];
-        $.String.Usage //= 'value';
+        $.String.Usage = 'value' if $.String.Usage eq 'initial';
         $.String.DataType = 'string';
         $.Delimiter = @.Arguments[1];
-        $.Delimiter.Usage //= 'value';
+        $.Delimiter.Usage = 'value' if $.Delimiter.Usage eq 'initial';
         $.Delimiter.DataType = 'string';
     }
     method Gal_Generate()
@@ -6214,7 +6390,7 @@ class Function_Get is Function
         $.Variable = @.Arguments[0];
         $.Variable.Usage = 'variable';
         $.Default = @.Arguments[1];
-        $.Default.Usage //= 'value';
+        $.Default.Usage = 'value' if $.Default.Usage eq 'initial';
     }
     method Gal_Generate()
     {
@@ -6277,6 +6453,12 @@ class Function_Append is Function
                 {
                     $RakuArgs = $ArgRakuCode;
                 }
+                $Between = " ~ ";
+            }
+            elsif $ArgRakuCode.starts-with('"_') && $RakuArgs.ends-with('_"')
+            {
+                # Append String Arguments into a comma-separated argument list.
+                $RakuArgs = "$RakuArgs$Between$ArgRakuCode";
                 $Between = " ~ ";
             }
             elsif $ArgRakuCode.starts-with('"') && $RakuArgs.ends-with('"')
@@ -6426,6 +6608,10 @@ class Syntax_False is Syntax
     {
         $.Gal = 'false';
     }
+    method Raku_Generate()
+    {
+        $.Raku = 'False';
+    }
 }
 
 class Syntax_Null is Syntax
@@ -6436,6 +6622,10 @@ class Syntax_Null is Syntax
     {
         $.Gal = "null";
     }
+    method Raku_Generate()
+    {
+        $.Raku = 'Nil';
+    }
 }
 
 class Syntax_True is Syntax
@@ -6445,6 +6635,30 @@ class Syntax_True is Syntax
     method Gal_Generate()
     {
         $.Gal = 'true';
+    }
+    method Raku_Generate()
+    {
+        $.Raku = 'True';
+    }
+}
+
+class Syntax_Self is Syntax
+{
+    our $.Gal_Keyword = 'self';
+    has $.DataType is rw = 'entity';
+    method Raku_Generate()
+    {
+        $.Raku = 'self';
+    }
+}
+
+class Syntax_Class_Self is Syntax
+{
+    our $.Gal_Keyword = 'class.self';
+    has $.DataType is rw = 'entity';
+    method Raku_Generate()
+    {
+        $.Raku = 'self';
     }
 }
 
@@ -6507,7 +6721,7 @@ class Function_New is Function
         my $Argument;
         for @.Arguments -> $Argument
         {
-            $Argument.Usage //= 'value';
+            $Argument.Usage = 'value' if $Argument.Usage eq 'initial';
         }
         $.Type = @.Arguments[0];
         $.Type.Usage = "class";
@@ -6523,6 +6737,7 @@ class Function_New is Function
         for @Args -> $Argument
         {
             my $ArgRaku = $Argument.Raku;
+            #say $ArgRaku;
             if $RakuCode eq ''
             {
                 $RakuCode = $ArgRaku;
@@ -6914,7 +7129,7 @@ class Function_NotNull is Function
     method Attributes()
     {
         $.String = @.Arguments[0];
-        $.String.Usage //= 'value';
+        $.String.Usage = 'value' if $.String.Usage eq 'initial';
     }
     method Raku_Generate()
     {
@@ -6932,7 +7147,7 @@ class Function_Isnull is Function
     method Attributes()
     {
         $.String = @.Arguments[0];
-        $.String.Usage //= 'value';
+        $.String.Usage = 'value' if $.String.Usage eq 'initial';
     }
     method Raku_Generate()
     {
@@ -6967,7 +7182,7 @@ class Function_Firstchar is Function
     method Attributes()
     {
         $.String = @.Arguments[0];
-        $.String.Usage //= 'value';
+        $.String.Usage = 'value' if $.String.Usage eq 'initial';
     }
     method Raku_Generate()
     {
@@ -6985,9 +7200,9 @@ class Function_Contains is Function
     method Attributes()
     {
         $.String = @.Arguments[0];
-        $.String.Usage //= 'value';
+        $.String.Usage = 'value' if $.String.Usage eq 'initial';
         $.Substring = @.Arguments[1];
-        $.Substring.Usage //= 'value';
+        $.Substring.Usage = 'value' if $.Substring.Usage eq 'initial';
     }
     method Raku_Generate()
     {
@@ -7004,7 +7219,7 @@ class Function_Lastchar is Function
     method Attributes()
     {
         $.String = @.Arguments[0];
-        $.String.Usage //= 'value';
+        $.String.Usage = 'value' if $.String.Usage eq 'initial';
     }
     method Raku_Generate()
     {
@@ -7021,7 +7236,7 @@ class Function_Whitespace is Function
     method Attributes()
     {
         $.String = @.Arguments[0];
-        $.String.Usage //= 'value';
+        $.String.Usage = 'value' if $.String.Usage eq 'initial';
     }
     method Raku_Generate()
     {
@@ -7038,7 +7253,7 @@ class Function_Lowercase is Function
     method Attributes()
     {
         $.String = @.Arguments[0];
-        $.String.Usage //= 'value';
+        $.String.Usage = 'value' if $.String.Usage eq 'initial';
     }
     method Raku_Generate()
     {
@@ -7080,7 +7295,7 @@ class Function_Uppercase is Function
     method Attributes()
     {
         $.String = @.Arguments[0];
-        $.String.Usage //= 'value';
+        $.String.Usage = 'value' if $.String.Usage eq 'initial';
     }
     method Raku_Generate()
     {
@@ -7195,11 +7410,11 @@ class Function_Middle is Function
             say "ERROR (middle argcount ", @.Arguments.elems, ")";
         }
         $.String = @.Arguments[0];
-        $.String.Usage //= 'value';
+        $.String.Usage = 'value' if $.String.Usage eq 'initial';
         $.FrontCount = @.Arguments[1];
-        $.FrontCount.Usage //= 'value';
+        $.FrontCount.Usage = 'value' if $.FrontCount.Usage eq 'initial';
         $.BackCount = @.Arguments[2];
-        $.BackCount.Usage //= 'value';
+        $.BackCount.Usage = 'value' if $.BackCount.Usage eq 'initial';
     }
     method Raku_Generate()
     {
@@ -7220,13 +7435,13 @@ class Function_Substring is Function
     method Attributes()
     {
         $.String = @.Arguments[0];
-        $.String.Usage //= 'value';
+        $.String.Usage = 'value' if $.String.Usage eq 'initial';
         $.StringStart = @.Arguments[1];
-        $.StringStart.Usage //= 'value';
+        $.StringStart.Usage = 'value' if $.StringStart.Usage eq 'initial';
         $.Length = @.Arguments[2];
         if defined($.Length)
         {
-            $.Length.Usage //= 'value';
+            $.Length.Usage = 'value' if $.Length.Usage eq 'initial';
         }
     }
     method Raku_Generate()
@@ -7253,7 +7468,7 @@ class Function_Stringlength is Function
     method Attributes()
     {
         $.String = @.Arguments[0];
-        $.String.Usage //= 'value';
+        $.String.Usage = 'value' if $.String.Usage eq 'initial';
     }
     method Raku_Generate()
     {
@@ -7273,7 +7488,7 @@ class Function_List_Get is Function
         $.List = @.Arguments[0];
         $.List.Usage = 'list';
         $.Index = @.Arguments[1];
-        $.Index.Usage //= 'value';
+        $.Index.Usage = 'value' if $.Index.Usage eq 'initial';
     }
     method Raku_Generate()
     {
@@ -7416,11 +7631,15 @@ class Syntax_Dot is Syntax
 class Syntax_I is Syntax
 {
     # this is an entity.property reference
-    our $.Gal_Keyword = 'my';
+    our $.Gal_Keyword = '. self';
     has $.Property is rw;
     has @.Propchain is rw;
     method Attributes()
     {
+        if @.Arguments.elems < 1
+        {
+            die 'Missing Argument List';
+        }
         @.Propchain = @.Arguments;
         $.Property = @.Propchain.shift;
         $.Property.Usage = 'propref';
@@ -7433,11 +7652,12 @@ class Syntax_I is Syntax
     method Raku_Generate() 
     {
         my $EntityRaku = 'self';
-        if @.Propchain.elems > 0
-        {
-            $EntityRaku = '$';
-        }
-        elsif $.Usage eq 'list'
+        #if @.Propchain.elems > 0
+        #{
+        #    $EntityRaku = '$';
+        #}
+        #els
+        if $.Usage eq 'list'
         {
             $EntityRaku = '@';
         }
@@ -7480,10 +7700,11 @@ class Syntax_Is is Syntax
     {
         my $ArgCount = @.Arguments.elems;
         return unless $ArgCount > 0;
-        my Element $NameEntity = @.Arguments[0];
+        my $NameEntity = @.Arguments[0];
         if $NameEntity
         {
             #say "Class Entity $NameEntity";
+            $NameEntity.Usage = 'class';
             $.Class = $NameEntity;
             die "IS Syntax doesn't have a parent!" unless $.Parent;
             $.Parent.Ancestors.push($.Class);
@@ -7515,6 +7736,28 @@ class Syntax_Line is Syntax
     {
         my $Count = $.Count;
         my $Returns = "\\n" x $Count;
+        $.Raku = "\"$Returns\"";
+    }
+}
+
+class Syntax_Backslash is Syntax 
+{
+    our $.Gal_Keyword = 'backslash';
+    has Int $.Count is rw = 1;
+    method Attributes()
+    {
+        my $ArgCount = @.Arguments.elems;
+        return unless $ArgCount > 0;
+        my Element $CountEntity = @.Arguments[0];
+        if $CountEntity
+        {
+            $.Count = Int($CountEntity.GetText());
+        }
+    }
+    method Raku_Generate() 
+    {
+        my $Count = $.Count;
+        my $Returns = "\\\\" x $Count;
         $.Raku = "\"$Returns\"";
     }
 }
@@ -7771,13 +8014,11 @@ sub MAIN ( Str $file, Str $target
     }
     Parser.Tokenize($Document);
     #$Document.Dump(True);
-    #say "Parsing\n";
+    say "Parsing\n" if $verbose;
     Parser.Parse($Document);
     #$Document.Dump();
-    say "Parser Attributes" if $verbose;
+    say "Attributes" if $verbose;
     Parser.Attributes($Document);
-    say "Document Attributes" if $verbose;
-    $Document.Attributes();
     say "Document Prepare" if $verbose;
     Parser.Prepare($Document);
     #say "Document Dump";
@@ -7911,3 +8152,4 @@ sub MAIN ( Str $file, Str $target
         }
     }
 }
+

@@ -1,0 +1,51 @@
+comment 'Debug.gal';
+forward Element;
+
+class Frame
+{
+    property entity Caller;
+    property entity Destination;
+    constructor [entity Caller, entity Destination]
+    {
+        my= Caller Caller;
+        my= Destination Destination;
+    }
+}
+
+class Element_Index
+{
+    class.property hash Index;
+    class.property integer Id 0;
+
+    class.method integer Next_Id
+    {
+        increment [class.property Id];
+        return [class.property Id];
+    }
+    
+    class.method entity Lookup [integer Id]
+    {
+        return (dict.get [classprop Index] Id);
+    }
+}
+
+class Debugger
+{
+    property flag Break_Mode [false];
+    property list Stack;
+    method void Push [string Invoke_Guid, string Dest_Guid]
+    {
+        entity Caller (. :Element Lookup Invoke_Guid);
+        entity Destination (. :Element Lookup Dest_Guid);
+        entity.new Frame :Frame Caller Destination;
+        list.push [my Stack] Frame;
+    }
+    method void Pop [string Exit_Guid];
+    method void Declare [string Declare_Guid, string Runtime_Expression];
+    method void Conditional_Debug [string Element_Guid];
+    method void Show
+    {
+    }
+
+}
+

@@ -1,0 +1,332 @@
+comment 'Language.gal';
+
+class Language
+{
+    class.property flag Verbose [false];
+    class.property string Language_Name 'Language';
+    class.property hash Languages;
+    class.property string Generator_Name;
+    class.method void Initialize
+    {
+        string Name [classprop Language_Name];
+        comment `dict.assign [. :Language Languages] Name [class.self]`;
+    }
+    method string Get [entity Element];
+    method void Generate [entity Element];
+}
+
+language Gal
+{
+    class.property flag Verbose [false];
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Gal]) [. Element Gal];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Gal_Generate;
+    }
+
+    classmethod void Parse_Element [entity Element]
+    {
+        entity Token (list.get [. Element Tokens] 0);
+        entity Next (list.get [. Element Tokens] 1);
+        entity Parent Element;
+        comment writeline 'Parent Equals Element: ' (. Parent To_String);
+        entity Document Element;
+        integer End (- (list.length [. Element Tokens]) 1);
+        integer Position;
+        string Comma_Mode 'unsupported';
+        entity Child (. :Factory Create_Element Token Next Document Parent Comma_Mode);
+        list Stack;
+        if [cp Verbose] { writeline "Gal_Parse push first child " (. Child To_String); }
+        push Stack Child;
+        = Parent Child;
+        flag Comma [false];
+        for.range Position 1 End
+        {
+            if [cp Verbose] { writeline ""; }
+            = Token (list.get [. Element Tokens] Position);
+            = Comma (isa Token :Token_Comma);
+            if [cp Verbose] { writeline "Parse Token " (. Token To_String) " with stack " (list.length Stack) ' comma ' Comma ' mode ' Comma_Mode; }
+            comment writeline "Parse Token " (. Token To_String) " with stack " (list.length Stack) ' comma ' Comma ' mode ' Comma_Mode;
+            if Child
+            {
+                integer Status (. Child Gal_Add_Token Token);
+                if [cp Verbose] { writeline 
+                    "    Element '" (. Child To_String) 
+                    "' returned status '" Status 
+                    "' on Token '" (. Token To_String) 
+                    "' stack length " (list.length Stack) 
+                    ' comma mode ' Comma_Mode;
+                }
+                if (= Status 0)
+                {
+                    if (and (isa Token :Value_Token) (not [. Token Is_Verb]))
+                    {
+                        if [cp Verbose] { writeline "Appending value token to document body"; }
+                        push [. Element Document_Body] Token;
+                    }
+                    continue;
+                }
+                if (less Status 0)
+                {
+                    integer Stack_Length (list.length Stack);
+                    string Elem_String (. Child To_String);
+                    if [cp Verbose] { writeline 
+                        "Going to pop with " Stack_Length
+                        " elements, element " Elem_String;
+                    }
+                    if (greater (list.length Stack) 0)
+                    {
+                        = Child (pop Stack);
+                        if (greater (list.length Stack) 0)
+                        {
+                            = Parent (list.last Stack);
+                            comment writeline 'Parent Stack Last: ' (. Parent To_String);
+                        }
+                        else
+                        {
+                            = Parent Element;
+                            comment writeline 'Parent must equal Element: ' (. Parent To_String);
+                            comment writeline 'Child was ' (. Child To_String);
+                        }
+                        if (isa Child Syntax)
+                        {
+                            = Comma_Mode 'syntax';
+                        }
+                        else.if (isa Child Operation)
+                        {
+                            = Comma_Mode 'operation';
+                        }
+                        else.if (isa Child Keyvalue)
+                        {
+                            = Comma_Mode 'keyvalue';
+                        }
+                        else
+                        {
+                            = Comma_Mode 'unsupported';
+                        }
+                        if (and (isa Child :Statement)
+                            (defined [. Child Block]))
+                        {
+                            push [. Element Document_Body] [. Child Block];
+                        }
+                        push [. Element Document_Body] Child;
+                        if [cp Verbose] { writeline 'Adding element ' (. Child To_String) ' to parent ' (. Parent To_String); }
+                        . Parent Gal_Add_Element Child;
+                        if (greater (list.length Stack) 0)
+                        {
+                            = Child (list.last Stack);
+                        }
+                        else
+                        {
+                            = Child [null];
+                            if [cp Verbose] { writeline "Stack empty, null element"; }
+                        }
+                    }
+                    else
+                    {
+                        = Child [null];
+                        = Parent Element;
+                        if [cp Verbose] { writeline "Empty stack, element null"; }
+                    }
+                    continue.if (not Comma);
+                }
+                else
+                {
+                    if [cp Verbose] { writeline "Positive Status " Status " on Token " (. Token To_String) " in element " (. Element To_String) " stack length " (list.length Stack); }
+                }
+            }
+            if (less Position End)
+            {
+                = Next (list.get [. Element Tokens] (+ Position 1));
+            }
+            else
+            {
+                = Next [null];
+            }
+            if (isa Token End_Token)
+            {
+                if [cp Verbose] { writeline "Detected End Token " (. Token To_String) " in element " (. Child To_String); }
+            }
+            = Child (. :Factory Create_Element Token Next Document Parent Comma_Mode);
+            push Stack Child;
+            = Parent Child;
+            if [cp Verbose] { writeline "Create/Push Element " (. Child To_String) " stack " (list.length Stack) " body elements " (list.length [. Element Document_Body]); }
+        }
+    }
+}
+
+language Mumps
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Mumps]) [. Element Mumps];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Mumps_Generate;
+    }
+    method void Parse_Element [entity Element]
+    {
+    }
+}
+
+language Fallback
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Fallback]) [. Element Fallback];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Fallback_Generate;
+    }
+    method void Parse_Element [entity Element]
+    {
+    }
+}
+
+language Python
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Python]) [. Element Python];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Python_Generate;
+    }
+    method void Parse_Element [entity Element]
+    {
+    }
+}
+
+language Javascript
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Javascript]) [. Element Javascript];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Javascript_Generate;
+    }
+    method void Parse_Element [entity Element]
+    {
+    }
+}
+
+language Python_Fallback
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Python]) [. Element Python];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        forgive
+        {
+            . Element Python_Generate;
+            .= Element Fallback [. Element Gal];
+        }
+    }
+    method void Parse_Element [entity Element]
+    {
+    }
+}
+
+language Javascript_Fallback
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Javascript]) [. Element Javascript];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        forgive
+        {
+            . Element Javascript_Generate;
+            .= Element Fallback [. Element Gal];
+        }
+    }
+    method void Parse_Element [entity Element]
+    {
+    }
+}
+
+language Sql
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Sql]) [. Element Sql];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Sql_Generate;
+    }
+    method void Parse_Element [entity Element]
+    {
+    }
+}
+
+language Debug
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Debug]) [. Element Debug];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Debug_Generate;
+    }
+}
+
+language Php
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Php]) [. Element Php];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Php_Generate;
+    }
+}
+
+language Java
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Java]) [. Element Java];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Java_Generate;
+    }
+}
+
+language Raku
+{
+    method string Get [entity Element]
+    {
+        returnif (defined [. Element Raku]) [. Element Raku];
+        return '<Undefined>';
+    }
+    method void Generate [entity Element]
+    {
+        . Element Raku_Generate;
+    }
+}

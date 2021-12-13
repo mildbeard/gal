@@ -1,0 +1,276 @@
+
+
+
+
+comment 'Token.gal';
+
+forward Factory;
+forward Block;
+forward Statement;
+forward Operation;
+forward Syntax;
+forward Keyvalue;
+
+class Token
+{
+    property string Input;
+    property entity Document;
+    property integer Start_Position;
+    property integer End_Position;
+    property string Gal;
+    property string Fallback;
+    property string Debug;
+    property string Python;
+    property string Javascript;
+    property string Mumps;
+    property string Error;
+    property flag Is_Verb [false];
+    property string Usage;
+    property entity Method_Context;
+    property entity Variable_Context;
+    property entity Parent;
+    method string To_String
+    {
+        string String [class.name] " '" [my Input] "' " 
+            [my Start_Position] '-' [my End_Position];
+        if (defined [my Error])
+        {
+            append String ' ERROR<' [my Error] '>';
+        }
+        return String;
+    }
+    method integer Compare [entity Element]
+    {
+        integer My_End [my End_Position];
+        integer Elem_End [. Element End_Position];
+        returnif (greater My_End Elem_End) 1;
+        returnif (less My_End Elem_End) -1;
+        integer My_Start [my Start_Position];
+        integer Elem_Start [. Element Start_Position];
+        returnif (greater My_Start Elem_Start) -1;
+        returnif (less My_Start Elem_Start) 1;
+        return 0;
+    }
+    classmethod flag Predict [string Character, string Next]
+    {
+        return [false];
+    }
+    method flag Append [string Character, string Next]
+    {
+        returnif (not (we Predict Character Next)) [false];
+        append [my Input] Character;
+        increment [my End_Position];
+        return [true];
+    }
+    method void Attributes;
+    method void Structure;
+    method void Gal_Generate
+    {
+        my= Gal [my Input];
+    }
+    method void Fallback_Generate
+    {
+        my= Fallback [my Gal];
+    }
+    method void Debug_Generate
+    {
+        my= Debug [my Input];
+    }
+    method void Python_Generate
+    {
+        my= Python [my Input];
+    }
+    method void Javascript_Generate
+    {
+        my= Javascript [my Input];
+    }
+    method void Mumps_Generate
+    {
+        my= Mumps [my Input];
+    }
+    method string Python_Atom [integer Precedence]
+    {
+        return [my Python];
+    }
+    method string Javascript_Atom [integer Precedence]
+    {
+        string Code [my Javascript];
+        return Code;
+    }
+}
+class Token_Space [is Token]
+{
+    classmethod flag Predict [string Character, string Next]
+    {
+        return (whitespace Character);
+    }
+}
+class Value_Token [is Token];
+class Token_Name [is Value_Token]
+{
+    classmethod flag Predict [string Character, string Next]
+    {
+        returnif (whitespace Character) [false];
+        returnif (contains '[]{}<>();,"`' Character) [false];
+        returnif (string.eq Character "'") [false];
+        return [true];
+    }
+
+    method void Python_Generate
+    {
+        string Code [my Input];
+        if (contains Code ':')
+        {
+            if (string.eq (firstchar Code) ':')
+            {
+                = Code (substring Code 1);
+            }
+            replace Code ':' '_';
+            comment writeline 'Token.Name ' [my Input] '-->' Code;
+        }
+        my= Python Code;
+    }
+    method void Javascript_Generate
+    {
+        string Code [my Input];
+        if (contains Code ':')
+        {
+            if (string.eq (firstchar Code) ':')
+            {
+                = Code (substring Code 1);
+            }
+            replace Code ':' '_';
+        }
+        my= Javascript Code;
+    }
+}
+class Number [is Value_Token]
+{
+    classmethod flag Predict [string Character, string Next]
+    {
+        return (contains '0123456789.-' Character);
+    }
+}
+class Quote [is Value_Token]
+{
+    classmethod flag Predict [string Character, string Next]
+    {
+        return (or (or (string.eq Character '"')
+                   (string.eq Character "'"))
+                   (string.eq Character '`'));
+    }
+    method flag Append [string Character, string Next]
+    {
+        string Text [my Input];
+        string First (firstchar Text);
+        string Last (lastchar Text);
+        returnif (and (string.eq First Last) (greater (length Text) 1)) [false];
+        append [my Input] Character;
+        increment [my End_Position];
+        return [true];
+    }
+    method void Fallback_Generate
+    {
+        string Gal_Code [my Gal];
+        my= Fallback Gal_Code;
+    }
+    method void Python_Generate
+    {
+        string Input [my Input];
+        if (contains Input [backslash])
+        {
+            replace Input [backslash] [backslash 2];
+        }
+        my= Python Input;
+    }
+    method void Javascript_Generate
+    {
+        string Input [my Input];
+        if (contains Input [backslash])
+        {
+            replace Input [backslash] [backslash 2];
+        }
+        my= Javascript Input;
+    }
+}
+
+class Boundary_Token [is Token]
+{
+    method flag Append [string Character, string Next]
+    {
+        return [false];
+    }
+}
+class Start_Token [is Boundary_Token];
+class End_Token [is Boundary_Token];
+class Token_Semi [is End_Token]
+{
+    classmethod flag Predict [string Character, string Next]
+    {
+        return (string.eq Character ';');
+    }
+}
+class Token_Block_Start [is Start_Token]
+{
+    classmethod flag Predict [string Character, string Next]
+    {
+        return (string.eq Character '{');
+    }
+}
+class Token_Block_End [is End_Token]
+{
+    classmethod flag Predict [string Character, string Next]
+    {
+        return (string.eq Character '}');
+    }
+}
+class Token_Operation_Start [is Start_Token]
+{
+    classmethod flag Predict [string Character, string Next]
+    {
+        return (string.eq Character '(');
+    }
+}
+class Token_Operation_End [is End_Token]
+{
+    classmethod flag Predict [string Character, string Next]
+    {
+        return (string.eq Character ')');
+    }
+}
+class Token_Syntax_Start [is Start_Token]
+{
+    classmethod flag Predict [string Character, string Next]
+    {
+        return (string.eq Character '[');
+    }
+}
+class Token_Syntax_End [is End_Token]
+{
+    classmethod flag Predict [string Character, string Next]
+    {
+        return (string.eq Character ']');
+    }
+}
+class Token_Keyvalue_Start [is Start_Token]
+{
+    classmethod flag Predict [string Character, string Next]
+    {
+        return (string.eq Character '<');
+    }
+}
+class Token_Keyvalue_End [is End_Token]
+{
+    classmethod flag Predict [string Character, string Next]
+    {
+        return (string.eq Character '>');
+    }
+}
+class Token_Comma [is Boundary_Token]
+{
+    classmethod flag Predict [string Character, string Next]
+    {
+        return (string.eq Character ',');
+    }
+}
+

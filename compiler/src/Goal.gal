@@ -1,0 +1,181 @@
+comment 'Goal.gal';
+
+statement Tilda ~ Invocation
+{
+    alias :;
+    argument Goal_Class 'class';
+    argument Interface 'method';
+    argument Method 'method';
+    method void Fallback_Generate
+    {
+        string Class_Name [my Goal_Class Fallback];
+        replace Class_Name ':' '';
+        string Interface_Name "'" [my Interface Fallback] "'";
+        string Method_Name [my Method Fallback];
+        string Method_Args (i Fallback_Args);
+        string Interface_Dict '[. :Goal_' Class_Name ' Interfaces]';
+        string Interface_Code '(dict.get ' Interface_Dict ' ' Interface_Name ')';
+        string Code '. ' Interface_Code ' ' Method_Name Method_Args ';';
+        my= Fallback Code;
+    }
+}
+
+operation Tilda ~ Invocation
+{
+    alias :;
+    argument Goal_Class 'class';
+    argument Interface 'method';
+    argument Method 'method';
+    method void Fallback_Generate
+    {
+        string Class_Name [my Goal_Class Fallback];
+        replace Class_Name ':' '';
+        string Interface_Name "'" [my Interface Fallback] "'";
+        string Method_Name [my Method Fallback];
+        string Method_Args (i Fallback_Args);
+        string Interface_Dict '[. :Goal_' Class_Name ' Interfaces]';
+        string Interface_Code '(dict.get ' Interface_Dict ' ' Interface_Name ')';
+        string Code '(. ' Interface_Code ' ' Method_Name Method_Args ')';
+        my= Fallback Code;
+    }
+}
+
+syntax Tilda ~
+{
+    alias :;
+    argument Goal_Class 'class';
+    argument Interface 'method';
+    argument Property 'property';
+    method void Fallback_Generate
+    {
+        string Class_Name [my Goal_Class Fallback];
+        replace Class_Name ':' '';
+        string Interface_Name "'" [my Interface Fallback] "'";
+        string Property_Name [my Method Fallback];
+        string Interface_Dict '[. :Goal_' Class_Name ' Interfaces]';
+        string Interface_Code '(dict.get ' Interface_Dict ' ' Interface_Name ')';
+        string Code '[. ' Interface_Code ' ' Property_Name ']';
+        my= Fallback Code;
+    }
+}
+
+class Gal_Class
+{
+    class.property number Class_Outcome;
+    class.property number Class_Outcome_Certainty;
+    class.property hash Class_Outcome_Support;
+    class.property number Class_Gratitude;
+    class.property number Class_Gratitude_Certainty;
+}
+
+class Goal_Action_Interface [is Gal_Class]
+{
+}
+class Goal_Measurement_Interface [is Gal_Class]
+{
+}
+class Goal_Value_Interface [is Gal_Class]
+{
+}
+
+class Goal [is Gal_Class]
+{
+    definition "Choose the settings that produce the optimal outcome.";
+    class.property list Goal_Roster;
+    class.property hash Interfaces;
+    class.property entity Goal_Alpha;
+    class.method entity Goal_Crown
+    {
+        todo 'sort the roster';
+        returnif (= 0 (list.length [classprop Goal_Roster]));
+        entity Alpha (list.get [classprop Goal_Roster] 0);
+        = [classprop Goal_Alpha] Alpha;
+        = [classprop Goal_Implementor] Alpha;
+        return Alpha;
+    }
+    class.method void Initialize
+    {
+        dict.assign [classprop Interfaces] 'Action' (new :Goal_Action_Interface); 
+        dict.assign [classprop Interfaces] 'Measurement' (new :Goal_Measurement_Interface); 
+        dict.assign [classprop Interfaces] 'Value' (new :Goal_Value_Interface); 
+    }
+}
+
+statement Definition definition Comment
+{
+    fallback 'comment "DEFINITION: "' (i Fallback_Args) ';';
+}
+
+statement Goal goal Class
+{
+    alias protocol spell;
+    argument Class_Name;
+    optional Definition;
+    property hash Interfaces;
+    
+    method void Attributes
+    {
+        entity Statement;
+        foreach [my Block Statements] Statement
+        {
+            if (isa Statement :Interface_Statement)
+            {
+                string Name [. Statement Interface_Name Input];
+                dict.assign [my Interfaces] Name Statement;
+            }
+        }
+    }
+
+    method void Fallback_Generate
+    {
+        todo 'handle Interface Fallback';
+        todo 'handle Interface Declaration';
+        string Body_Code '';
+        string Name [my Class_Name Fallback];
+        if (defined [my Definition]) {
+            string Def [my Definition Fallback];
+            append Body_Code [indent] 'definition ' Def ';' [line];
+        }
+        string Code 'class Goal_' Name 
+            ' [is Goal];';
+        todo;
+    }
+}
+
+statement Interface interface Interface
+{
+    argument Interface_Name;
+    method void Fallback_Generate
+    {
+        string Owner_Class [my Class_Context Class_Name];
+        replace Owner_Class ':' '';
+        string Class_Name [my Interface_Name Fallback];
+        replace Class_Name ':' '';
+        string Interface_Name "'" Class_Name "'";
+        comment `= Class_Name (append ":Interface_" Owner_Class "_" Class_Name)`;
+        string Kludge ":Interface_" Owner_Class;
+        append Kludge "_" Class_Name;
+        = Class_Name Kludge;
+        comment 'Generate the interface class as specified.';
+        string Class_Args (i Fallback_Args);
+        string Class_Body (i Fallback_Body);
+        string Class_Code 'class ' Class_Name Class_Args ' [is Interface]' Class_Body;
+        comment 'Generate the initial interface assignment of that class.';
+        string Interface_Assignment 'dict.assign [classprop Interfaces] ' Interface_Name ' (new ' Class_Name ');'; 
+        my= Gal_Declaration Class_Code;
+        my= Fallback Interface_Assignment;
+    }
+}
+
+statement Implementor implementor Line
+{
+    argument Interface;
+    argument Implementor;
+    method void Fallback_Generate
+    {
+        string Interface_Fallback "'" [my Interface Fallback] "'";
+        string Implementor_Fallback [my Implementor Fallback];
+        string Interface_Assignment 'dict.assign [classprop Interfaces] ' Interface_Fallback ' ' Implementor_Fallback ';'; 
+        my= Fallback Interface_Assignment;
+    }
+}

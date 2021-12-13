@@ -1,0 +1,322 @@
+comment 'Factory.gal';
+
+class Factory
+{
+    class.property hash Element_Index;
+    class.method void Add_Index [entity Element]
+    {
+        try
+        {
+            increment [key [classprop Element_Index] [classname Element]];
+        }
+        catch
+        {
+            = [key [classprop Element_Index] [classname Element]] 1;
+        }
+    }
+    class.method entity Create_Token [string Char, string Next, integer Position]
+    {
+        entity New_Token;
+        if (. :Token_Operation_Start Predict Char Next)
+        {
+            new New_Token :Token_Operation_Start;
+        }
+        else.if (. :Token_Operation_End Predict Char Next)
+        {
+            new New_Token :Token_Operation_End;
+        }
+        else.if (. :Token_Syntax_Start Predict Char Next)
+        {
+            new New_Token :Token_Syntax_Start;
+        }
+        else.if (. :Token_Syntax_End Predict Char Next)
+        {
+            new New_Token :Token_Syntax_End;
+        }
+        else.if (. :Token_Block_Start Predict Char Next)
+        {
+            new New_Token :Token_Block_Start;
+        }
+        else.if (. :Token_Block_End Predict Char Next)
+        {
+            new New_Token :Token_Block_End;
+        }
+        else.if (. :Token_Semi Predict Char Next)
+        {
+            new New_Token :Token_Semi;
+        }
+        else.if (. :Token_Comma Predict Char Next)
+        {
+            new New_Token :Token_Comma;
+        }
+        else.if (. :Token_Name Predict Char Next)
+        {
+            new New_Token :Token_Name;
+        }
+        else.if (. :Token_Keyvalue_Start Predict Char Next)
+        {
+            new New_Token :Token_Keyvalue_Start;
+        }
+        else.if (. :Token_Keyvalue_End Predict Char Next)
+        {
+            new New_Token :Token_Keyvalue_End;
+        }
+        else.if (. :Quote Predict Char Next)
+        {
+            new New_Token :Quote;
+        }
+        else.if (. :Token_Space Predict Char Next)
+        {
+            new New_Token :Token_Space;
+        }
+        else.if (. :Number Predict Char Next)
+        {
+            new New_Token :Number;
+        }
+        else
+        {
+            new New_Token :Token_Name;
+        }
+
+        .= New_Token Input Char;
+        .= New_Token Start_Position Position;
+        .= New_Token End_Position Position;
+        . :Factory Add_Index New_Token;
+
+        return New_Token;
+    }
+
+    class.method entity Create_Statement [entity Input_Token, entity Next, entity Document, entity Parent_Element]
+    {
+        string Verb ' ' (lowercase [. Input_Token Input]) ' ';
+        entity Element;
+        if (contains ' = assign ' Verb) { new Element :Statement_Assign; }
+        else.if (contains ' . call ' Verb) { new Element :Statement_Call; }
+        else.if (contains ' .= property.assign property.set propset ' Verb) { new Element :Statement_Propset; }
+        else.if (contains ' ~ tilda : ' Verb) { new Element :Statement_Tilda; }
+        else.if (contains ' add + += ' Verb) { new Element :Statement_Add; }
+        else.if (contains ' alias ' Verb) { new Element :Statement_Alias; }
+        else.if (contains ' answer ' Verb) { new Element :Statement_Answer; }
+        else.if (contains ' append string.append ' Verb) { new Element :Statement_Append; }
+        else.if (contains ' argument ' Verb) { new Element :Statement_Argument; }
+        else.if (contains ' break ' Verb) { new Element :Statement_Break; }
+        else.if (contains ' break.if breakif ' Verb) { new Element :Statement_Breakif; }
+        else.if (contains ' catch ' Verb) { new Element :Statement_Catch; }
+        else.if (contains ' class ' Verb) { new Element :Statement_Class; }
+        else.if (contains ' class.method classmethod ' Verb) { new Element :Statement_Class_Method; }
+        else.if (contains ' class.property classprop setting our ' Verb) { new Element :Statement_Class_Property; }
+        else.if (contains ' comment ' Verb) { new Element :Statement_Comment; }
+        else.if (contains ' constructor ' Verb) { new Element :Statement_Constructor; }
+        else.if (contains ' continue ' Verb) { new Element :Statement_Continue; }
+        else.if (contains ' continue.if contif ' Verb) { new Element :Statement_Contif; }
+        else.if (contains ' debug d ' Verb) { new Element :Statement_Debug; }
+        else.if (contains ' debug.stack ds ' Verb) { new Element :Statement_Debug_Stack; }
+        else.if (contains ' debug.variable dv ' Verb) { new Element :Statement_Debug_Variable; }
+        else.if (contains ' definition ' Verb) { new Element :Statement_Definition; }
+        else.if (contains ' dictionary dict hash ' Verb) { new Element :Statement_Dictionary; }
+        else.if (contains ' dictionary.= dict.= hash.= dictionary.assign dict.assign hash.assign ' Verb) { new Element :Statement_Dictionary_Assign; }
+        else.if (contains ' else ' Verb) { new Element :Statement_Else; }
+        else.if (contains ' else.if elsif elseif ' Verb) { new Element :Statement_Else_If; }
+        else.if (contains ' entities ' Verb) { new Element :Statement_Entities; }
+        else.if (contains ' entity ' Verb) { new Element :Statement_Entity; }
+        else.if (contains ' entity.new new.entity ' Verb) { new Element :Statement_Entity_New; }
+        else.if (contains ' error raise throw ' Verb) { new Element :Statement_Error; }
+        else.if (contains ' fallback ' Verb) { new Element :Statement_Fallback; }
+        else.if (contains ' flag boolean bool ' Verb) { new Element :Statement_Flag; }
+        else.if (contains ' file.readall readall ' Verb) { new Element :Statement_File_Readall; }
+        else.if (contains ' file.dump ' Verb) { new Element :Statement_File_Dump; }
+        else.if (contains ' for.range ' Verb) { new Element :Statement_For_Range; }
+        else.if (contains ' foreach list.foreach ' Verb) { new Element :Statement_Foreach; }
+        else.if (contains ' forgive ' Verb) { new Element :Statement_Forgive; }
+        else.if (contains ' forward ' Verb) { new Element :Statement_Forward; }
+        comment "else.if (contains ' handle ' Verb) { new Element :Statement_Handle; }";
+        else.if (contains ' i self me this ' Verb) { new Element :Statement_I; }
+        else.if (contains ' if ' Verb) { new Element :Statement_If; }
+        else.if (contains ' increment ++ ' Verb) { new Element :Statement_Increment; }
+        else.if (contains ' integer int ' Verb) { new Element :Statement_Integer; }
+        else.if (contains ' integers ints ' Verb) { new Element :Statement_Integers; }
+        else.if (contains ' iterate dict.iterate dictionary.iterate hash.iterate ' Verb) { new Element :Statement_Iterate; }
+        else.if (contains ' javascript ' Verb) { new Element :Statement_Javascript; }
+        else.if (contains ' know import use include ' Verb) { new Element :Statement_Know; }
+        else.if (contains ' language ' Verb) { new Element :Statement_Language; }
+        else.if (contains ' list ' Verb) { new Element :Statement_List; }
+        else.if (contains ' list.append push list.push ' Verb) { new Element :Statement_List_Append; }
+        else.if (contains ' main ' Verb) { new Element :Statement_Main; }
+        else.if (contains ' method ' Verb) { new Element :Statement_Method; }
+        else.if (contains ' module ' Verb) { new Element :Statement_Module; }
+        else.if (contains ' mumps ' Verb) { new Element :Statement_Mumps; }
+        else.if (contains ' my= i= i.= self= self.= ' Verb) { new Element :Statement_My_Equal; }
+        else.if (contains ' new ' Verb) { new Element :Statement_New; }
+        else.if (contains ' number ' Verb) { new Element :Statement_Number; }
+        else.if (contains ' operation ' Verb) { new Element :Statement_Operation; }
+        else.if (contains ' optional ' Verb) { new Element :Statement_Optional; }
+        else.if (contains ' property my ' Verb) { new Element :Statement_Property; }
+        else.if (contains ' python ' Verb) { new Element :Statement_Python; }
+        else.if (contains ' question ' Verb) { new Element :Statement_Question; }
+        else.if (contains ' replace string.replace ' Verb) { new Element :Statement_Replace; }
+        else.if (contains ' return ' Verb) { new Element :Statement_Return; }
+        else.if (contains ' return.if returnif ' Verb) { new Element :Statement_Return_If; }
+        else.if (contains ' sort ' Verb) { new Element :Statement_Sort; }
+        else.if (contains ' goal spell protocol ' Verb) { new Element :Statement_Goal; }
+        else.if (contains ' statement ' Verb) { new Element :Statement_Statement; }
+        else.if (contains ' string ' Verb) { new Element :Statement_String; }
+        else.if (contains ' symbol ' Verb) { new Element :Statement_Symbol; }
+        else.if (contains ' syntax ' Verb) { new Element :Statement_Syntax; }
+        else.if (contains ' todo ' Verb) { new Element :Statement_Todo; }
+        else.if (contains ' try ' Verb) { new Element :Statement_Try; }
+        else.if (contains ' unless ' Verb) { new Element :Statement_Unless; }
+        else.if (contains ' variant ' Verb) { new Element :Statement_Variant; }
+        comment "else.if (contains ' verb ' Verb) { new Element :Statement_Verb; }";
+        else.if (contains ' write ' Verb) { new Element :Statement_Write; }
+        else.if (contains ' writeline say write.line ' Verb) { new Element :Statement_Write_Line; }
+        else
+        {
+            error "Unknown Statement '" [. Input_Token Input] "'";
+        }
+        list.append [. Element Elements] Input_Token;
+        .= Element Verb [. Next Input];
+        .= Element Start_Position [. Input_Token Start_Position];
+        .= Element End_Position [. Input_Token End_Position];
+        .= Element Document Document;
+        .= Element Parent Parent_Element;
+        . :Factory Add_Index Element;
+        return Element;
+    }
+
+    class.method entity Create_Operation [entity Input_Token, entity Next, entity Document, entity Parent_Element]
+    {
+        string Verb ' ' (lowercase [. Next Input]) ' ';
+        entity Element;
+        if (contains ' + add ' Verb) { new Element :Operation_Add; }
+        else.if (contains ' & and ' Verb) { new Element :Operation_And; }
+        else.if (contains ' . call ' Verb) { new Element :Operation_Call; }
+        else.if (contains ' ~ : ' Verb) { new Element :Operation_Tilda; }
+        else.if (contains ' classpropget ' Verb) { new Element :Operation_Classpropget; }
+        else.if (contains ' defined ' Verb) { new Element :Operation_Defined; }
+        else.if (contains ' key.get dict.get dictionary.get hash.get ' Verb) { new Element :Operation_Key_Get; }
+        else.if (contains ' key.exists dict.exists dictionary.exists hash.exists ' Verb) { new Element :Operation_Key_Exists; }
+        else.if (contains ' divide / ' Verb) { new Element :Operation_Divide; }
+        else.if (contains ' equal = ' Verb) { new Element :Operation_Equal; }
+        else.if (contains ' firstchar ' Verb) { new Element :Operation_Firstchar; }
+        else.if (contains ' greater gt ' Verb) { new Element :Operation_Greater; }
+        else.if (contains ' greater.equal ge ' Verb) { new Element :Operation_Greater_Equal; }
+        else.if (contains ' http.fetch fetch ' Verb) { new Element :Operation_Http_Fetch; }
+        else.if (contains ' i self me this ' Verb) { new Element :Operation_I; }
+        else.if (contains ' isa is.a ' Verb) { new Element :Operation_Isa; }
+        else.if (contains ' isnull is.null ' Verb) { new Element :Operation_Is_Null; }
+        else.if (contains ' is.whitespace whitespace ' Verb) { new Element :Operation_Whitespace; }
+        else.if (contains ' lastchar ' Verb) { new Element :Operation_Lastchar; }
+        else.if (contains ' less lt ' Verb) { new Element :Operation_Less; }
+        else.if (contains ' less.equal le ' Verb) { new Element :Operation_Less_Equal; }
+        else.if (contains ' list.get ' Verb) { new Element :Operation_List_Get; }
+        else.if (contains ' list.last ' Verb) { new Element :Operation_List_Last; }
+        else.if (contains ' list.length ' Verb) { new Element :Operation_List_Length; }
+        else.if (contains ' list.pop pop ' Verb) { new Element :Operation_List_Pop; }
+        else.if (contains ' list.shift shift ' Verb) { new Element :Operation_List_Shift; }
+        else.if (contains ' list.split split ' Verb) { new Element :Operation_List_Split; }
+        else.if (contains ' lowercase lower ' Verb) { new Element :Operation_Lowercase; }
+        else.if (contains ' multiply mult * ' Verb) { new Element :Operation_Multiply; }
+        else.if (contains ' new ' Verb) { new Element :Operation_New; }
+        else.if (contains ' not ! ' Verb) { new Element :Operation_Not; }
+        else.if (contains ' notnull not.null ' Verb) { new Element :Operation_Not_Null; }
+        else.if (contains ' or | ' Verb) { new Element :Operation_Or; }
+        else.if (contains ' sql.escape ' Verb) { new Element :Operation_Sql_Escape; }
+        else.if (contains ' sql.query query ' Verb) { new Element :Operation_Sql_Query; }
+        else.if (contains ' sql.secure.query secure.query ' Verb) { new Element :Operation_Sql_Secure_Query; }
+        else.if (contains ' string ' Verb) { new Element :Operation_String; }
+        else.if (contains ' string.append append ' Verb) { new Element :Operation_Append; }
+        else.if (contains ' string.contains contains ' Verb) { new Element :Operation_Contains; }
+        else.if (contains ' string.equal string.eq seq s= ' Verb) { new Element :Operation_String_Equal; }
+        else.if (contains ' string.greater string.gt sgt ' Verb) { new Element :Operation_String_Greater; }
+        else.if (contains ' string.greater.equal string.ge sge ' Verb) { new Element :Operation_String_Greater_Equal; }
+        else.if (contains ' string.length length ' Verb) { new Element :Operation_String_Length; }
+        else.if (contains ' string.less string.lt slt ' Verb) { new Element :Operation_String_Less; }
+        else.if (contains ' string.less.equal string.le sle ' Verb) { new Element :Operation_String_Less_Equal; }
+        else.if (contains ' string.not.equal string.ne sne ' Verb) { new Element :Operation_String_Not_Equal; }
+        else.if (contains ' substring ' Verb) { new Element :Operation_Substring; }
+        else.if (contains ' subtract - ' Verb) { new Element :Operation_Subtract; }
+        else.if (contains ' uppercase upper ' Verb) { new Element :Operation_Uppercase; }
+        else.if (contains ' we class.method cm ' Verb) { new Element :Operation_We; }
+        else
+        {
+            error "Unknown Operation '" Verb "' '" [. Next Input] "'";
+        }
+        list.append [. Element Elements] Input_Token;
+        .= Element Start_Position [. Input_Token Start_Position];
+        .= Element End_Position [. Input_Token End_Position];
+        .= Element Document Document;
+        .= Element Parent Parent_Element;
+        . :Factory Add_Index Element;
+        return Element;
+    }
+
+    class.method entity Create_Syntax [entity Input_Token, entity Next, entity Document, entity Parent_Element]
+    {
+        string Verb ' ' (lowercase [. Next Input]) ' ';
+        entity Element;
+        if (contains ' . property prop p ' Verb) { new Element :Syntax_Dot; }
+        else.if (contains ' ~ : ' Verb) { new Element :Syntax_Tilda; }
+        else.if (contains ' backslash ' Verb) { new Element :Syntax_Backslash; }
+        else.if (contains ' class.name classname ' Verb) { new Element :Syntax_Class_Name; }
+        else.if (contains ' class.property classprop cp our their ' Verb) { new Element :Syntax_Class_Property; }
+        else.if (contains ' dictionary dict hash ' Verb) { new Element :Syntax_Dictionary; }
+        else.if (contains ' entity ' Verb) { new Element :Syntax_Entity; }
+        else.if (contains ' false ' Verb) { new Element :Syntax_False; }
+        else.if (contains ' flag ' Verb) { new Element :Syntax_Flag; }
+        else.if (contains ' my self this me i ' Verb) { new Element :Syntax_My; }
+        else.if (contains ' key ' Verb) { new Element :Syntax_Key; }
+        else.if (contains ' indent ' Verb) { new Element :Syntax_Indent; }
+        else.if (contains ' integer ' Verb) { new Element :Syntax_Integer; }
+        else.if (contains ' is extends ' Verb) { new Element :Syntax_Is; }
+        else.if (contains ' line newline ' Verb) { new Element :Syntax_Line; }
+        else.if (contains ' node ' Verb) { new Element :Syntax_Node; }
+        else.if (contains ' null ' Verb) { new Element :Syntax_Null; }
+        else.if (contains ' number ' Verb) { new Element :Syntax_Number; }
+        else.if (contains ' optional ' Verb) { new Element :Syntax_Optional; }
+        else.if (contains ' repeating ' Verb) { new Element :Syntax_Repeating; }
+        else.if (contains ' string ' Verb) { new Element :Syntax_String; }
+        else.if (contains ' tab ' Verb) { new Element :Syntax_Tab; }
+        else.if (contains ' true ' Verb) { new Element :Syntax_True; }
+        else.if (contains ' variant ' Verb) { new Element :Syntax_Variant; }
+        else
+        {
+            error "Unknown Syntax '" [. Next Input] "'";
+        }
+        list.append [. Element Elements] Input_Token;
+        .= Element Start_Position [. Input_Token Start_Position];
+        .= Element End_Position [. Input_Token End_Position];
+        .= Element Document Document;
+        .= Element Parent Parent_Element;
+        . :Factory Add_Index Element;
+        return Element;
+    }
+
+    class.method entity Create_Element [entity Input_Token, entity Next, entity Document, entity Parent_Element, string Comma_Mode]
+    {
+        entity Element;
+        if (or (isa Input_Token :Token_Operation_Start)
+               (and (isa Input_Token :Token_Comma) (string.eq Comma_Mode 'operation')))
+        {
+            = Element (. :Factory Create_Operation Input_Token Next Document Parent_Element);
+        }
+        else.if (or (isa Input_Token :Token_Syntax_Start)
+                (and (isa Input_Token :Token_Comma) (string.eq Comma_Mode 'syntax')))
+        {
+            = Element (. :Factory Create_Syntax Input_Token Next Document Parent_Element);
+        }
+        else.if (or (isa Input_Token :Token_Keyvalue_Start)
+                (and (isa Input_Token :Token_Comma) (string.eq Comma_Mode 'keyvalue')))
+        {
+            = Element (. :Factory Create_Keyvalue Input_Token Next Document Parent_Element);
+        }
+        else
+        {
+            = Element (. :Factory Create_Statement Input_Token Next Document Parent_Element);
+        }
+        string Elem_String (. Element To_String);
+        string Parent_String (. Parent_Element To_String);
+        comment writeline 'created ' Elem_String ' with parent ' Parent_String;
+        return Element;
+    }
+}
+

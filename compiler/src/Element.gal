@@ -1,0 +1,547 @@
+comment 'Element.gal';
+
+forward Gal;
+forward Python;
+forward Javascript;
+forward Sql;
+
+class Element
+{
+    class.property integer Js_Precedence 99;
+    class.property flag Verbose [false];
+    property string Dialect '';
+    property string Input '';
+    property integer Start_Position -1;
+    property integer End_Position -1;
+    property entity Document;
+    property entity Parent;
+    property string Gal;
+    property string Debug;
+    property string Fallback;
+    property string Python;
+    property string Javascript;
+    property string Mumps;
+    property string Php;
+    property string Java;
+    property string Sql;
+    property string Gal_Declaration;
+    property list Tokens;
+    property entity Class_Context;
+    property entity Method_Context;
+    property entity Variable_Context;
+    property list Document_Body;
+    property list Elements;
+    property string Error;
+    property flag Is_Verb [false];
+    property string Usage '';
+    property flag Re_Structure [true];
+    property entity Block;
+    property string Data_Type;
+    method flag Validate
+    {
+        return [true];
+    }
+    method entity Lookup [string Element_Name]
+    {
+        returnif [my Parent] (. [my Parent] Lookup Element_Name);
+        return [false];
+    }
+    method void Model;
+    method string To_String
+    {
+        string String [class.name] ': ';
+        try
+        {
+            append String [my Start_Position];
+        }
+        catch
+        {
+            append String '<Start?>';
+        }
+        try
+        {
+            append String '-' [my End_Position];
+        }
+        catch
+        {
+            append String '-<End?>';
+        }
+        try
+        {
+            if (defined [my Error])
+            {
+                append String ' ERROR <' [my Error] '>';
+            }
+        }
+        catch
+        {
+            append String ' ok';
+        }
+        append String (i String_Info);
+        return String;
+    }
+    method string String_Info
+    {
+        return '.';
+    }
+    method string Get_Input
+    {
+        integer String_Length (+ (- [my End_Position] [my Start_Position]) 1);
+        entity Text (substring [my Document Input] [my Start_Position] String_Length);
+        return Text;
+    }
+    method integer Compare [entity Element]
+    {
+        integer My_End [my End_Position];
+        integer Elem_End [. Element End_Position];
+        returnif (greater My_End Elem_End) 1;
+        returnif (less My_End Elem_End) -1;
+        integer My_Start [my Start_Position];
+        integer Elem_Start [. Element Start_Position];
+        returnif (greater My_Start Elem_Start) -1;
+        returnif (less My_Start Elem_Start) 1;
+        return 0;
+    }
+    method void Gal_Generate
+    {
+        error "Must Override Gal_Generate";
+    }
+    method void Debug_Generate
+    {
+        error "Must Override Debug_Generate";
+    }
+    method void Fallback_Generate
+    {
+        my= Fallback [my Gal];
+    }
+    method void Php_Generate
+    {
+        error "Must Override Php_Generate";
+    }
+    method void Java_Generate
+    {
+        error "Must Override Java_Generate";
+    }
+    method integer Gal_Add_Token [entity Token]
+    {
+        return -1;
+    }
+    method void Gal_Add_Element [entity Child_Element]
+    {
+        comment writeline 'append element ' [class.name];
+        push [my Elements] Child_Element;
+    }
+
+    method flag Gal_Tokenize
+    {
+        string Text [my Input];
+        string Char (substring Text 0 1);
+        string Next (substring Text 1 1);
+        integer End (- (length Text) 1);
+        integer Position 0;
+        entity Token (. :Factory Create_Token Char Next Position);
+        if (not (isa Token :Token_Space))
+        {
+            push [my Tokens] Token;
+        }
+        for.range Position 1 End
+        {
+            = Char (substring Text Position 1);
+            if (lt Position End)
+            {
+                = Next (substring Text (+ Position 1) 1);
+            }
+            else
+            {
+                = Next '';
+            }
+            continue.if (. Token Append Char Next);
+            = Token (. :Factory Create_Token Char Next Position);
+            returnif (not Token) [false];
+            contif (isa Token :Token_Space);
+            push [my Tokens] Token;
+        }
+        return [true];
+    }
+
+    method void Gal_Parse
+    {
+        todo 'Migrate this to Gal.Parse_Element class';
+        . :Gal Parse_Element [self];
+    }
+
+    method void Javascript_Parse
+    {
+        todo "Parse this element's tokens into Javascript language elements.";
+        . :Javascript Parse_Element [self];
+    }
+    method void Python_Parse
+    {
+        todo "Parse this element's tokens into Python language elements.";
+        . :Python Parse_Element [self];
+    }
+    method void Sql_Parse
+    {
+        todo "Parse this element's tokens into SQL language elements.";
+        . :Sql Parse_Element [self];
+    }
+
+    method void Structure
+    {
+        returnif (not [my Re_Structure]);
+        my= Re_Structure [false];
+        comment writeline '     Element Structure ' [class.name];
+        i Base_Structure;
+        entity Element;
+        foreach [my Elements] Element
+        {
+            if (and (defined [my Method_Context])
+                    (not (defined [. Element Method_Context])))
+            {
+                .= Element Method_Context [my Method_Context];
+            }
+            if (and (defined [my Variable_Context])
+                    (not (defined [. Element Variable_Context])))
+            {
+                .= Element Variable_Context [my Variable_Context];
+            }
+            comment .= Element Parent [self];
+            . Element Structure;
+        }
+    }
+    method void Base_Structure;
+    method void Child_Attributes
+    {
+        entity Element;
+        foreach [my Document_Body] Element
+        {
+            string Error;
+            try
+            {
+                . Element Attributes;
+            }
+            catch Error
+            {
+                .= Element Error Error;
+            }
+        }
+    }
+    
+    method void Attributes;
+    
+    method flag Validate 
+    {
+        return [true]; 
+    }
+    
+    method void Javascript_Generate
+    {
+        error [class.name] ' must override Javascript_Generate';
+    }
+
+    method void Python_Generate
+    {
+        error [class.name] ' must override Python_Generate';
+    }
+
+    method void Sql_Generate
+    {
+        error [class.name] ' must override Sql_Generate';
+    }
+
+    method void Mumps_Generate
+    {
+        error [class.name] ' must override Mumps_Generate';
+    }
+
+    method string Gal_Block
+    {
+        returnif (defined [my Block]) [my Block Gal];
+        return ';';
+    }
+    
+    method string Fallback_Block
+    {
+        returnif (defined [my Block]) [my Block Fallback];
+        return ';';
+    }
+    
+    method string Python_Block
+    {
+        returnif (defined [my Block]) [my Block Python];
+        return (append ':' [line, indent] 'pass' [line]);
+    }
+    
+    method string Javascript_Block
+    {
+        returnif (defined [my Block]) [my Block Javascript];
+        return (append ' { }' [line]);
+    }
+    
+    method string Fallback_Args
+    {
+        entity Argument;
+        string Args_Gal '';
+        foreach [my Listargs] Argument
+        {
+            string Arg_Gal [. Argument Fallback];
+            append Args_Gal ' ' Arg_Gal;
+        }
+        return Args_Gal;
+    }
+
+    method string Python_Args [string Separator]
+    {
+        entity Argument;
+        string Args_Py '';
+        string Between '';
+        foreach [my Listargs] Argument
+        {
+            if (not (defined [. Argument Python]))
+            {
+                error 'Argument Python not defined: ' [. Argument Gal];
+            }
+            string Arg_Py [. Argument Python];
+            append Args_Py Between Arg_Py;
+            = Between Separator;
+        }
+        return Args_Py;
+    }
+
+    method string Python_String_Args [string Separator]
+    {
+        entity Argument;
+        string Args_Py '';
+        string Between '';
+        foreach [my Listargs] Argument
+        {
+            if (not (defined [. Argument Python]))
+            {
+                error 'Argument Python not defined: ' [. Argument Gal];
+            }
+            string Arg_Py [. Argument Python];
+            if (isa Arg_Py Quote)
+            {
+                append Args_Py Between Arg_Py;
+            }
+            else
+            {
+                append Args_Py Between 'str(' Arg_Py ')';
+            }
+            = Between Separator;
+        }
+        return Args_Py;
+    }
+
+    method string Javascript_Args [string Separator]
+    {
+        entity Argument;
+        string Args_Js '';
+        string Between '';
+        foreach [my Listargs] Argument
+        {
+            if (not (defined [. Argument Javascript]))
+            {
+                error 'Argument Javascript not defined: ' [. Argument Gal];
+            }
+            string Arg_Js [. Argument Javascript];
+            append Args_Js Between Arg_Js;
+            = Between Separator;
+        }
+        return Args_Js;
+    }
+
+    method string Mumps_Args [string Separator]
+    {
+        entity Argument;
+        string Args_M '';
+        string Between '';
+        foreach [my Listargs] Argument
+        {
+            string Arg_M [. Argument Mumps];
+            append Args_M Between Arg_M;
+            = Between Separator;
+        }
+        return Args_M;
+    }
+
+    method string Fallback_Full_Args
+    {
+        entity Argument;
+        string Args_Code '';
+        foreach [my Arguments] Argument
+        {
+            append Args_Code ' ' [. Argument Fallback];
+        }
+        return Args_Code;
+    }
+
+    method string Python_Full_Args [string Separator]
+    {
+        entity Argument;
+        string Args_Py '';
+        string Between '';
+        foreach [my Arguments] Argument
+        {
+            string Arg_Py [. Argument Python];
+            append Args_Py Between Arg_Py;
+            = Between Separator;
+        }
+        return Args_Py;
+    }
+
+    method string Javascript_Full_Args [string Separator]
+    {
+        entity Argument;
+        string Args_Js '';
+        string Between '';
+        foreach [my Arguments] Argument
+        {
+            string Arg_Js [. Argument Javascript];
+            append Args_Js Between Arg_Js;
+            = Between Separator;
+        }
+        return Args_Js;
+    }
+
+    method string Mumps_Full_Args [string Separator]
+    {
+        entity Argument;
+        string Args_M '';
+        string Between '';
+        foreach [my Arguments] Argument
+        {
+            string Arg_M [. Argument Mumps];
+            append Args_M Between Arg_M;
+            = Between Separator;
+        }
+        return Args_M;
+    }
+    
+    method string Indent [string Input]
+    {
+        list Lines (split Input [line]);
+        string Line;
+        string Indented '';
+        foreach Lines Line
+        {
+            if (string.gt Line '')
+            {
+                append Indented [indent] Line [line];
+            }
+        }
+        return Indented;
+    }
+    method string Python_Atom [integer Precedence]
+    {
+        string Code [my Python];
+        forgive
+        {
+            if (gt Precedence [class.property Js_Precedence])
+            {
+                = Code (append '(' Code ')');
+            }
+        }
+        return Code;
+    }
+    method string Javascript_Atom [integer Precedence]
+    {
+        string Code [my Javascript];
+        forgive
+        {
+            if (gt Precedence [class.property Js_Precedence])
+            {
+                = Code (append '(' Code ')');
+            }
+        }
+        return Code;
+    }
+
+    method string Code_Context
+    {
+        integer Start [my Start_Position];
+        integer End [my End_Position];
+        integer Length (+ (- End Start) 1);
+        integer Window 50;
+        integer Before (- Start Window);
+        integer BL Window;
+        if (lt Before 0)
+        {
+            = BL (+ Window Before);
+            = Before 0;
+        }
+        string Prefix (substring [my Document Input] Before BL);
+        string Middle (substring [my Document Input] Start Length);
+        string Suffix (substring [my Document Input] (+ End 1) Window);
+        string Context Prefix '<*' Middle '*>' Suffix;
+        return Context;
+    }
+
+    method string Gal_Code
+    {
+        integer Start [my Start_Position];
+        integer End [my End_Position];
+        integer Length (+ (- End Start) 1);
+        string Code (substring [my Document Input] Start Length);
+        return Code;
+    }
+
+    method string Failure_Message [string Problem_Desc]
+    {
+        string Message Problem_Desc '. ';
+        append Message (i Gal_Code) ' ';
+        append Message (i Code_Context);
+        return Message;
+    }
+}
+
+class Named_Element [is Element]
+{
+    class.property string Gal_Keyword;
+    property string Verb;
+    property list Listargs;
+    property list Arguments;
+    method string String_Info
+    {
+        string String '';
+        try
+        {
+            entity Argument;
+            foreach [my Arguments] Argument
+            {
+                string Arg_Str [class.name Argument];
+                append String ' ' Arg_Str;
+            }
+        }
+        catch
+        {
+            append String '<invalid Arguments>';
+        }
+        append String '.';
+        return String;
+    }
+    method void Base_Structure
+    {
+        entity Argument;
+        entity Previous;
+        foreach [my Arguments] Argument
+        {
+            if (and (isa Argument Syntax)
+               (and (defined Previous)
+                    (isa Previous Syntax)))
+            {
+                .= Previous Chain_Forward [true];
+                .= Argument Chain_Backward [true];
+            }
+            = Previous Argument;
+        }
+    }
+    method void Gal_Add_Element [entity Child_Element]
+    {
+        comment writeline 'append element argument ' [class.name];
+        push [my Elements] Child_Element;
+        push [my Arguments] Child_Element;
+        push [my Listargs] Child_Element;
+    }
+}
+
